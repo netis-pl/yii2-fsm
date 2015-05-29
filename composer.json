@@ -1,5 +1,5 @@
 {
-    "name": "web-tools/yii2-fsm",
+    "name": "netis/yii2-fsm",
     "description": "Extensions to the Yii PHP framework providing tools for switching status of an AR model.",
     "license": "MIT",
     "authors": [
