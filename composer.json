@@ -1,7 +1,12 @@
 {
     "name": "netis/yii2-fsm",
     "description": "Extensions to the Yii PHP framework providing tools for switching status of an AR model.",
+    "type": "yii2-extension",
     "license": "MIT",
+    "support": {
+    	"issues": "http://gitlab.netis.pl/web-tools/yii2-utils/issues",
+    	"source": "http://gitlab.netis.pl/web-tools/yii2-utils/tree/master"
+    },
     "authors": [
         {
             "name": "Jan Waś",
@@ -13,5 +18,9 @@
         }
     ],
     "require": {
+        "yiisoft/yii2": ">=2.0.4",
+    },
+    "autoload": {
+    	"psr-4": { "netis\\utils\\": "" }
     }
 }
