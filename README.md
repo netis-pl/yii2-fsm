@@ -9,36 +9,29 @@ Provides:
 * a controller method to build a menu
 * state graph configuration
 
-Requires:
-* niix
 
 ## Installation
 
 Currently, the repository is private, so add it manually to the composer.json file:
 
 ~~~json
-
-    "repositories": [
-        {
-            "type": "vcs",
-            "url": "http://git.nets.com.pl/git/niix-fsm.git"
-        }
-    ],
+  "require": {
+    "netis/yii2-fsm": "dev-master"
+  },
 
 ~~~
 
-Using global composer:
 
-~~~bash
-
-composer require nineinchnick/niix-fsm:dev-master
-
-~~~
-
-Define the `fsm` alias in application configuration file as `'fsm' => 'application.vendor.nineinchnick.niix-fsm'`.
+add alias to config
+`    'aliases' => [
+        '@netis' => '@vendor/netis',
+    ],`
 
 ## Usage
 
+~~~command
+    run example `./yii fsm/create  "\netis\assortment\models\Product" "application_status_changes" "productPricings"`
+~~~
 * Implement the `IStateful` interface in selected AR model. You might want to add `Yii::import('fsm.components.*')` at the top of the file.
 * Adjust rules to remove attributes from the `transition` scenario. The `NetActiveRecord.filterRules()` helper method should be used for that.
 * In the controller, add the `state` action and include it in the context menu, adjust according to comments:

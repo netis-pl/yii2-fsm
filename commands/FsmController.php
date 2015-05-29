@@ -1,5 +1,5 @@
 <?php
-namespace nineinchnick\fsm\commands;
+namespace netis\fsm\commands;
 
 use yii;
 use yii\console\controllers\MigrateController;
@@ -15,20 +15,20 @@ class FsmController extends Controller
      * in terms of a path alias, and the corresponding directory must exist.
      * Defaults to 'application.migrations' (meaning 'protected/migrations').
      */
-    public $migrationPath='@migrations';
+    public $migrationPath='@app/migrations';
     /**
      * @var string the path of the template file for generating new migrations. This
      * must be specified in terms of a path alias (e.g. application.migrations.template).
      * If not set, an internal template will be used.
      */
-    public $templateFile='@fsmTemplate';
+    public $templateFile='@netis/yii2-fsm/migrations/template';
     /**
      * @var boolean whether to execute the migration in an interactive mode. Defaults to true.
      * Set this to false when performing migration in a cron job or background process.
      */
     public $interactive=true;
 
-    public function beforeAction($action,$params)
+    public function beforeAction($action)
     {
         $path=Yii::getAlias($this->migrationPath);
         if($path===false || !is_dir($path))
@@ -38,7 +38,7 @@ class FsmController extends Controller
         }
         $this->migrationPath=$path;
 
-        return parent::beforeAction($action,$params);
+        return parent::beforeAction($action);
     }
 
     /**
@@ -54,8 +54,6 @@ class FsmController extends Controller
         $model = new $modelClass;
         $modelRelation = $model->getRelation($relation);
         $mainModel = new $modelRelation->modelClass;
-        Yii::import('niix.helpers.InflectorHelper');
-
         $name='m'.gmdate('ymd_His').'_install_fsm';
         $content=strtr($this->getTemplate(), [
             '{ClassName}'   => $name,
@@ -68,7 +66,6 @@ class FsmController extends Controller
             '{MainPrimaryKey}'  => $mainModel->tableSchema->primaryKey[0],
         ]);
         $file=$this->migrationPath.DIRECTORY_SEPARATOR.$name.'.php';
-
         if($this->confirm("Create new migration '$file'?"))
         {
             file_put_contents($file, $content);
