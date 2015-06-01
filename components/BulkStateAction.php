@@ -1,6 +1,6 @@
 <?php
 
-namespace nineinchnick\fsm\components;
+namespace netis\fsm\components;
 
 /**
  * BulkStateAction works like StateAction, only on a group of records.
@@ -42,7 +42,7 @@ class BulkStateAction extends BaseBulkAction
     /**
      * @var string Class name of state action used to perform single operations.
      */
-    public $stateActionClass = 'fsm.components.StateAction';
+    public $stateActionClass = '@netis/yii2-fsm/components/StateAction';
     /**
      * @var boolean Is the job run in a single query.
      */

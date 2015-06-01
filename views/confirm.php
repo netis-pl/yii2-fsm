@@ -2,7 +2,6 @@
 /* @var $this NetController */
 /* @var $model NetActiveRecord */
 /* @var $targetState mixed */
-use Yii;
 use yii\helpers\Html;
 use yii\helpers\Url;
 
@@ -14,8 +13,8 @@ $this->setPageTitle($title);
 <?= netis\utils\web\Alerts::widget() ?>
 
 <?php echo Yii::t('app', 'Change status from {source} to {target}', array(
-    '{source}' => '<span class="badge badge-default">'.Yii::app()->formatter->format($sourceState, $format).'</span>',
-    '{target}' => '<span class="badge badge-primary">'.Yii::app()->formatter->format($targetState, $format).'</span>',
+    '{source}' => '<span class="badge badge-default">'.Yii::$app->formatter->format($sourceState, $format).'</span>',
+    '{target}' => '<span class="badge badge-primary">'.Yii::$app->formatter->format($targetState, $format).'</span>',
 )); ?>
 
 <div class="form">

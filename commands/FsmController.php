@@ -1,8 +1,6 @@
 <?php
 namespace netis\fsm\commands;
 
-use yii;
-use yii\console\controllers\MigrateController;
 use yii\console\Controller;
 use yii\helpers\Inflector;
 /**
