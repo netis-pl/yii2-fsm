@@ -1,6 +1,6 @@
 <?php
 
-namespace nineinchnick\fsm\components;
+namespace netis\fsm\components;
 
 class StateTransition extends CComponent
 {

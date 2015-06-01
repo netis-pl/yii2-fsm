@@ -1,5 +1,5 @@
 <?php
-namespace nineinchnick\fsm\components;
+namespace netis\fsm\components;
 
 interface IStateful
 {
