@@ -6,6 +6,7 @@ use yii\helpers\Html;
 use yii\helpers\Url;
 use yii\web\HttpException;
 use netis\utils\crud\Action;
+use yii;
 
 /**
  * StateAction displays a list of possible state transitions and raises an AR model event.
@@ -235,13 +236,13 @@ class StateAction extends Action
      * @param boolean is the url going to be used in a context menu
      * @return array url params to be used with a route
      */
-    public function getUrlParams($state, $model, $targetState, $contextMenu = false)
+    public static function getUrlParams($state, $model, $targetState, $id, $contextMenu = false)
     {
         $urlParams = ['id' => $model->primaryKey, 'targetState' => $targetState];
         if (!$state->confirmation_required) {
             $urlParams['confirmed'] = true;
         } else {
-            $urlParams['return'] = $this->id;
+            $urlParams['return'] = $id;
         }
         return $urlParams;
     }
@@ -347,7 +348,7 @@ class StateAction extends Action
                 $enabled = ($enabled === null || $enabled) && $status;
             }
 
-            $url = array_merge([$action->id], $action->getUrlParams($state, $model, $targetState, true));
+            $url = array_merge([$action->id], self::getUrlParams($state, $model, $targetState, $action->id, true));
             $statusMenu['items'][] = [
                 'label' => $state->label,
                 'icon'  => $state->icon,

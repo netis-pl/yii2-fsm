@@ -2,7 +2,9 @@
 
 namespace netis\fsm\components;
 
-class StateTransition extends CComponent
+use yii\base\Object;
+
+class StateTransition extends Object
 {
     public $source_state;
     public $target_state;
