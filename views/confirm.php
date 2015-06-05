@@ -1,15 +1,13 @@
 <?php
-/* @var $this NetController */
-/* @var $model NetActiveRecord */
-/* @var $targetState mixed */
+
 use yii\helpers\Html;
 use yii\helpers\Url;
 
-$this->buildNavigation($this->action, $model);
-$title = Yii::t('app', 'Status').' '.Html::encode($model->label()).' '.Html::encode($model);
-$this->setPageTitle($title);
+$action = Yii::$app->controller->action;
+//$this->buildNavigation($action, $model);
+//$title = Yii::t('app', 'Status').' '.Html::encode($model->label()).' '.Html::encode($model);
+//$this->setPageTitle($title);
 ?>
-
 <?= netis\utils\web\Alerts::widget() ?>
 
 <?php echo Yii::t('app', 'Change status from {source} to {target}', array(
@@ -24,7 +22,7 @@ $this->setPageTitle($title);
             <?php echo Html::textArea('reason', '', array('cols'=>80, 'rows'=>5,'style'=>'width: 25em;')); ?>
         </div>
     </div>
-    <?= Html::a('<i class="fa fa-save"></i>'.Yii::t("app", "Confirm"), Url::toRoute([$this->id, 'state'=>$targetState, 'confirmed'=>1]), ['class' => 'btn btn-success']) ?>
+    <?= Html::a('<i class="fa fa-save"></i>'.Yii::t("app", "Confirm"), Url::toRoute([$action->id, 'id'=>$model->primaryKey, 'targetState'=>$targetState, 'confirmed'=>1]), ['class' => 'btn btn-success']) ?>
     <?= Html::a(Yii::t('app', 'Cancel'), Url::toRoute([(isset($_GET['return'])) ? $_GET['return'] : 'view', 'id'=>$model->primaryKey])); ?>
 </div>
 
