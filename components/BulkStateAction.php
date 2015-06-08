@@ -141,7 +141,7 @@ class BulkStateAction extends BaseBulkAction
         $command            = $finder->createCommand($criteria);
         $sourceStates       = $command->queryColumn();
         if (count($sourceStates) > 1) {
-            throw new CException(Yii::t('app', 'All selected models must have same source state.'));
+            throw new CException(Yii::t('netis/fsm/app', 'All selected models must have same source state.'));
         }
         return reset($sourceStates);
     }
@@ -178,7 +178,7 @@ class BulkStateAction extends BaseBulkAction
     public function runBatch()
     {
         if (($targetState = Yii::app()->request->getParam('targetState')) === null) {
-            throw new CHttpException(400, Yii::t('yii', 'Your request is invalid.'));
+            throw new CHttpException(400, Yii::t('netis/fsm/yii', 'Your request is invalid.'));
         }
         $baseModel                                  = new $this->controller->modelClass;
         $baseModel->scenario                        = IStateful::SCENARIO;
@@ -211,7 +211,7 @@ class BulkStateAction extends BaseBulkAction
         if ($trx !== null) {
             $trx->commit();
         }
-        $message = Yii::t('app', '{number} out of {total} {model} has been successfully updated.', [
+        $message = Yii::t('netis/fsm/app', '{number} out of {total} {model} has been successfully updated.', [
                     'number' => $dataProvider->getTotalItemCount() - count($failedKeys) - count($skippedKeys),
                     'total'  => $dataProvider->getTotalItemCount(),
                     'model'  => $baseModel->label($dataProvider->getTotalItemCount()),

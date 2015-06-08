@@ -71,21 +71,21 @@ class StateAction extends Action
     {
         $model = $this->findModel($id);
         if ($this->controller->checkAccessInActions && (!$this->checkAccess || !call_user_func($this->checkAccess, $this->id, $model))) {
-            throw new HttpException(403, Yii::t('app', 'You are not authorized to perform this action on this object.'));
+            throw new HttpException(403, Yii::t('netis/fsm/app', 'You are not authorized to perform this action on this object.'));
         }
         $model->scenario = IStateful::SCENARIO;
         list($stateChange, $sourceState, $format) = $this->prepare($model);
         $this->checkTransition($model, $stateChange, $sourceState, $targetState);
 
         if (isset($stateChange['state']->auth_item_name) && (!$this->checkAccess || !call_user_func($this->checkAccess, $stateChange['state']->auth_item_name, $model))) {
-            throw new HttpException(400, Yii::t('app', 'You don\'t have necessary permissions to move the application from {from} to {to}.', array(
+            throw new HttpException(400, Yii::t('netis/fsm/app', 'You don\'t have necessary permissions to move the application from {from} to {to}.', array(
                 'from' => Yii::$app->formatter->format($sourceState, $model->getAttributeFormat($model->stateAttributeName)),
                 'to'   => Yii::$app->formatter->format($targetState, $model->getAttributeFormat($model->stateAttributeName)),
             )));
         }
 
         if (!isset($stateChange['targets'][$targetState])) {
-            throw new HttpException(400, Yii::t('app', 'You cannot change state from {from} to {to} because such state transition is undefined.', [
+            throw new HttpException(400, Yii::t('netis/fsm/app', 'You cannot change state from {from} to {to} because such state transition is undefined.', [
                 'from' => Yii::$app->formatter->format($sourceState, $model->getAttributeFormat($model->stateAttributeName)),
                 'to'   => Yii::$app->formatter->format($targetState, $model->getAttributeFormat($model->stateAttributeName)),
             ]));
@@ -111,7 +111,7 @@ class StateAction extends Action
     public function prepare($model)
     {
         if (!$model instanceof IStateful) {
-            throw new HttpException(500, Yii::t('app', 'Model {model} needs to implement the IStateful interface.', [
+            throw new HttpException(500, Yii::t('netis/fsm/app', 'Model {model} needs to implement the IStateful interface.', [
                 'model' => $this->controller->modelClass
             ]));
         }
@@ -145,7 +145,7 @@ class StateAction extends Action
                         'states'      => $this->prepareStates($model),
             ]);
         } else if ((!is_callable($this->isAdminCallback) || !call_user_func($this->isAdminCallback)) && !isset($stateChange['targets'][$targetState])) {
-            throw new HttpException(400, Yii::t('app', 'Changing status from {from} to {to} is not allowed.', [
+            throw new HttpException(400, Yii::t('netis/fsm/app', 'Changing status from {from} to {to} is not allowed.', [
                 'from' => Yii::$app->formatter->format($sourceState, $model->getAttributeFormat($model->stateAttributeName)),
                 'to'   => Yii::$app->formatter->format($targetState, $model->getAttributeFormat($model->stateAttributeName)),
             ]));
@@ -164,7 +164,7 @@ class StateAction extends Action
     public function performTransition($model, $stateChange, $sourceState, $targetState, $confirmed)
     {
         if ($targetState === $sourceState) {
-            $message = Yii::t('app', 'Status has already been changed') . ', ' . Html::a(Yii::t('app', 'return to'), Url::toRoute(['view', 'id' => $model->primaryKey]));
+            $message = Yii::t('netis/fsm/app', 'Status has already been changed') . ', ' . Html::a(Yii::t('netis/fsm/app', 'return to'), Url::toRoute(['view', 'id' => $model->primaryKey]));
             $this->setFlash('error', $message);
             return false;
         }
@@ -177,7 +177,7 @@ class StateAction extends Action
         $model->{$model->getStateAttributeName()} = $targetState;
 
         if ($model->performTransition($oldAttributes, []) === false) {
-            $this->setFlash('error', Yii::t('app', 'Failed to save changes.'));
+            $this->setFlash('error', Yii::t('netis/fsm/app', 'Failed to save changes.'));
             return false;
         }
         if (isset($stateChange['targets'][$targetState])) {
@@ -238,7 +238,7 @@ class StateAction extends Action
             $authItem                 = $this->updateAuthItemTemplate;
             $checkedAccess[$authItem] = ($this->checkAccess && call_user_func($this->checkAccess, $authItem, $model));
             $result[]                 = [
-                'label'   => Yii::t('app', 'Update item'),
+                'label'   => Yii::t('netis/fsm/app', 'Update item'),
                 'icon'    => 'pencil',
                 'url'     => Url::toRoute(['update', 'id' => $model->getPrimaryKey()]),
                 'enabled' => $checkedAccess[$authItem],
@@ -299,7 +299,7 @@ class StateAction extends Action
     public static function getContextMenuItem($action, $transitions, $model, $sourceState, $isAdmin = false)
     {
         $statusMenu = [
-            'label' => Yii::t('app', 'Status changes'),
+            'label' => Yii::t('netis/fsm/app', 'Status changes'),
             'icon'  => 'share',
             'url'   => '#',
             'items' => [],
