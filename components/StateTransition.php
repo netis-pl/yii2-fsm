@@ -6,6 +6,7 @@ use yii\base\Object;
 
 class StateTransition extends Object
 {
+
     public $source_state;
     public $target_state;
     public $label;
@@ -25,17 +26,18 @@ class StateTransition extends Object
     public static function statesToTransitions($states)
     {
         $result = [];
-        for($i = 0; $i < count($states); $i++) {
-            for($j = 0; $j < count($states); $j++) {
-                if ($i == $j) continue;
-                $transition = new StateTransition;
+        for ($i = 0; $i < count($states); $i++) {
+            for ($j = 0; $j < count($states); $j++) {
+                if ($i == $j)
+                    continue;
+                $transition               = new StateTransition;
                 $transition->source_state = $states[$i]->id;
                 $transition->target_state = $states[$j]->id;
-                $transition->label = isset($states[$j]->pre_label) ? $states[$j]->pre_label : (string)$states[$j];
-                $transition->post_label = isset($states[$j]->post_label) ? $states[$j]->post_label : (string)$states[$j];
-                $transition->icon = isset($states[$j]->icon) ? $states[$j]->icon : null;
-                $transition->css_class = isset($states[$j]->css_class) ? $states[$j]->css_class : null;
-                $result[] = $transition;
+                $transition->label        = isset($states[$j]->pre_label) ? $states[$j]->pre_label : (string) $states[$j];
+                $transition->post_label   = isset($states[$j]->post_label) ? $states[$j]->post_label : (string) $states[$j];
+                $transition->icon         = isset($states[$j]->icon) ? $states[$j]->icon : null;
+                $transition->css_class    = isset($states[$j]->css_class) ? $states[$j]->css_class : null;
+                $result[]                 = $transition;
             }
         }
         return $result;
@@ -44,7 +46,7 @@ class StateTransition extends Object
     public static function groupBySource($transitions, $source_attribute, $target_attribute)
     {
         $result = [];
-        foreach($transitions as $transition) {
+        foreach ($transitions as $transition) {
             if (!isset($result[$transition->$source_attribute])) {
                 $result[$transition->$source_attribute] = ['state' => $transition, 'targets' => []];
             }
@@ -56,7 +58,7 @@ class StateTransition extends Object
     public static function groupByTarget($transitions, $source_attribute, $target_attribute)
     {
         $result = [];
-        foreach($transitions as $transition) {
+        foreach ($transitions as $transition) {
             if (!isset($result[$transition->$target_attribute])) {
                 $result[$transition->$target_attribute] = ['state' => $transition, 'sources' => []];
             }
@@ -64,4 +66,5 @@ class StateTransition extends Object
         }
         return $result;
     }
+
 }

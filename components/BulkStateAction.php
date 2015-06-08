@@ -2,6 +2,8 @@
 
 namespace netis\fsm\components;
 
+use yii;
+
 /**
  * BulkStateAction works like StateAction, only on a group of records.
  *
@@ -27,41 +29,50 @@ namespace netis\fsm\components;
  */
 class BulkStateAction extends BaseBulkAction
 {
+
     /**
      * @var string Prefix of the auth item used to check access. Controller's $authModelClass is appended to it.
      */
     protected $_stateAuthItemTemplate = '{modelClass}.update';
+
     /**
      * @var string Auth item used to check access to update the main model. If null, the update button won't be available.
      */
     protected $_updateAuthItemTemplate;
+
     /**
      * @var callable A closure to check if current user is a superuser and authorization should be skipped.
      */
     public $isAdminCallback;
+
     /**
      * @var string Class name of state action used to perform single operations.
      */
-    public $stateActionClass = '@netis/yii2-fsm/components/StateAction';
+    public $stateActionClass          = '@netis/yii2-fsm/components/StateAction';
+
     /**
      * @var boolean Is the job run in a single query.
      */
-    public $singleQuery = false;
+    public $singleQuery               = false;
+
     /**
      * @var boolean Is the job run in a single transaction.
      * WARNING! Implies a single batch which may run out of execution time.
      * Enable this if there can be a SQL error that would interrupt the whole batch.
      */
-    public $singleTransaction = false;
+    public $singleTransaction         = false;
+
     /**
      * @var string A route to redirect to after finishing the job.
      * It should display flash messages.
      */
     public $postRoute;
+
     /**
      * @var string Key for flash message set after finishing the job.
      */
-    public $postFlashKey = 'success';
+    public $postFlashKey              = 'success';
+
     /**
      * @var CAction StateAction instance used to perform transitions.
      */
@@ -104,11 +115,11 @@ class BulkStateAction extends BaseBulkAction
     {
         if ($this->_stateAction === null) {
             $this->_stateAction = Yii::createComponent([
-                'class' => $this->stateActionClass,
-                'stateAuthItemTemplate' => $this->stateAuthItemTemplate,
-                'updateAuthItemTemplate' => $this->updateAuthItemTemplate,
-                'isAdminCallback' => $this->isAdminCallback,
-            ], $this->controller, $this->id);
+                        'class'                  => $this->stateActionClass,
+                        'stateAuthItemTemplate'  => $this->stateAuthItemTemplate,
+                        'updateAuthItemTemplate' => $this->updateAuthItemTemplate,
+                        'isAdminCallback'        => $this->isAdminCallback,
+                            ], $this->controller, $this->id);
         }
         return $this->_stateAction;
     }
@@ -123,12 +134,12 @@ class BulkStateAction extends BaseBulkAction
 
     protected function getSourceState($model)
     {
-        $criteria = $this->getCriteria();
-        $criteria->select = $model->dbConnection->quoteColumnName('t.'.$model->stateAttributeName).' as t0_c0';
+        $criteria           = $this->getCriteria();
+        $criteria->select   = $model->dbConnection->quoteColumnName('t.' . $model->stateAttributeName) . ' as t0_c0';
         $criteria->distinct = true;
-        $finder = new EActiveFinder($model, is_array($criteria->with) ? $criteria->with : []);
-        $command = $finder->createCommand($criteria);
-        $sourceStates = $command->queryColumn();
+        $finder             = new EActiveFinder($model, is_array($criteria->with) ? $criteria->with : []);
+        $command            = $finder->createCommand($criteria);
+        $sourceStates       = $command->queryColumn();
         if (count($sourceStates) > 1) {
             throw new CException(Yii::t('app', 'All selected models must have same source state.'));
         }
@@ -140,9 +151,9 @@ class BulkStateAction extends BaseBulkAction
      */
     public function prepare()
     {
-        $targetState = Yii::app()->request->getParam('targetState');
-        $model = new $this->controller->modelClass;
-        $model->scenario = IStateful::SCENARIO;
+        $targetState                         = Yii::app()->request->getParam('targetState');
+        $model                               = new $this->controller->modelClass;
+        $model->scenario                     = IStateful::SCENARIO;
         $model->{$model->stateAttributeName} = $this->getSourceState($model);
         list($stateChange, $sourceState, $uiType) = $this->stateAction->prepare($model);
 
@@ -152,12 +163,12 @@ class BulkStateAction extends BaseBulkAction
         $this->controller->initForm($model);
 
         $this->stateAction->render([
-            'model'         => $model,
-            'sourceState'   => $sourceState,
-            'targetState'   => $targetState,
-            'transition'    => $stateChange['targets'][$targetState],
-            'format'        => $uiType,
-            'stateActionUrl'=> $this->controller->createUrl($this->mainId.'.runBatch'),
+            'model'          => $model,
+            'sourceState'    => $sourceState,
+            'targetState'    => $targetState,
+            'transition'     => $stateChange['targets'][$targetState],
+            'format'         => $uiType,
+            'stateActionUrl' => $this->controller->createUrl($this->mainId . '.runBatch'),
         ]);
     }
 
@@ -167,10 +178,10 @@ class BulkStateAction extends BaseBulkAction
     public function runBatch()
     {
         if (($targetState = Yii::app()->request->getParam('targetState')) === null) {
-            throw new CHttpException(400, Yii::t('yii','Your request is invalid.'));
+            throw new CHttpException(400, Yii::t('yii', 'Your request is invalid.'));
         }
-        $baseModel = new $this->controller->modelClass;
-        $baseModel->scenario = IStateful::SCENARIO;
+        $baseModel                                  = new $this->controller->modelClass;
+        $baseModel->scenario                        = IStateful::SCENARIO;
         $baseModel->{$baseMdel->stateAttributeName} = $this->getSourceState($baseMdel);
         list($stateChange, $sourceState, $uiType) = $this->stateAction->prepare($baseModel);
 
@@ -181,10 +192,10 @@ class BulkStateAction extends BaseBulkAction
             throw new CException('Not implemented - the singleQuery option has not been implemented yet.');
         }
         $dataProvider = $this->getDataProvider($baseModel, $this->getCriteria());
-        $skippedKeys = [];
-        $failedKeys = [];
-        foreach($dataProvider->getData() as $model) {
-            if (isset($stateChange['state']->auth_item_name) && !Yii::app()->user->checkAccess($stateChange['state']->auth_item_name, ['model'=>$model])) {
+        $skippedKeys  = [];
+        $failedKeys   = [];
+        foreach ($dataProvider->getData() as $model) {
+            if (isset($stateChange['state']->auth_item_name) && !Yii::app()->user->checkAccess($stateChange['state']->auth_item_name, ['model' => $model])) {
                 $skippedKeys[] = $model->primaryKey;
             }
 
@@ -201,11 +212,12 @@ class BulkStateAction extends BaseBulkAction
             $trx->commit();
         }
         $message = Yii::t('app', '{number} out of {total} {model} has been successfully updated.', [
-            '{number}' => $dataProvider->getTotalItemCount() - count($failedKeys) - count($skippedKeys),
-            '{total}' => $dataProvider->getTotalItemCount(),
-            '{model}' => $baseModel->label($dataProvider->getTotalItemCount()),
+                    'number' => $dataProvider->getTotalItemCount() - count($failedKeys) - count($skippedKeys),
+                    'total'  => $dataProvider->getTotalItemCount(),
+                    'model'  => $baseModel->label($dataProvider->getTotalItemCount()),
         ]);
         Yii::app()->user->setFlash($this->postFlashKey, $message);
         $this->controller->redirect([$this->postRoute]);
     }
+
 }

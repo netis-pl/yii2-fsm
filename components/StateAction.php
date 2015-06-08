@@ -79,15 +79,15 @@ class StateAction extends Action
 
         if (isset($stateChange['state']->auth_item_name) && (!$this->checkAccess || !call_user_func($this->checkAccess, $stateChange['state']->auth_item_name, $model))) {
             throw new HttpException(400, Yii::t('app', 'You don\'t have necessary permissions to move the application from {from} to {to}.', array(
-                '{from}' => Yii::$app->formatter->format($sourceState, $model->getAttributeFormat($model->stateAttributeName)),
-                '{to}'   => Yii::$app->formatter->format($targetState, $model->getAttributeFormat($model->stateAttributeName)),
+                'from' => Yii::$app->formatter->format($sourceState, $model->getAttributeFormat($model->stateAttributeName)),
+                'to'   => Yii::$app->formatter->format($targetState, $model->getAttributeFormat($model->stateAttributeName)),
             )));
         }
 
         if (!isset($stateChange['targets'][$targetState])) {
             throw new HttpException(400, Yii::t('app', 'You cannot change state from {from} to {to} because such state transition is undefined.', [
-                '{from}' => Yii::$app->formatter->format($sourceState, $model->getAttributeFormat($model->stateAttributeName)),
-                '{to}'   => Yii::$app->formatter->format($targetState, $model->getAttributeFormat($model->stateAttributeName)),
+                'from' => Yii::$app->formatter->format($sourceState, $model->getAttributeFormat($model->stateAttributeName)),
+                'to'   => Yii::$app->formatter->format($targetState, $model->getAttributeFormat($model->stateAttributeName)),
             ]));
         }
         $model->setTransitionRules($targetState);
@@ -95,13 +95,11 @@ class StateAction extends Action
             $this->afterTransition($model);
         }
 
-        return ['partial' => $this->render([
-                'model'          => $model,
-                'sourceState'    => $sourceState,
-                'targetState'    => $targetState,
-                'transition'     => $stateChange['targets'][$targetState],
-                'format'         => $format,
-                'stateActionUrl' => Url::toRoute($this->id),
+        return ['content' => $this->renderPartial([
+                'model'       => $model,
+                'sourceState' => $sourceState,
+                'targetState' => $targetState,
+                'format'      => $format,
         ])];
     }
 
@@ -114,7 +112,7 @@ class StateAction extends Action
     {
         if (!$model instanceof IStateful) {
             throw new HttpException(500, Yii::t('app', 'Model {model} needs to implement the IStateful interface.', [
-                '{model}' => $this->controller->modelClass
+                'model' => $this->controller->modelClass
             ]));
         }
         $stateAttribute = $model->stateAttributeName;
@@ -141,15 +139,15 @@ class StateAction extends Action
     {
         if ($targetState === null) {
             // display all possible state transitions to select from
-            return $this->controller->render('@netis/yii2-fsm/views/state', [
-                'model'       => $model,
-                'targetState' => null,
-                'states'      => $this->prepareStates($model),
+            return $this->controller->renderPartial('@netis/yii2-fsm/views/state', [
+                        'model'       => $model,
+                        'targetState' => null,
+                        'states'      => $this->prepareStates($model),
             ]);
         } else if ((!is_callable($this->isAdminCallback) || !call_user_func($this->isAdminCallback)) && !isset($stateChange['targets'][$targetState])) {
             throw new HttpException(400, Yii::t('app', 'Changing status from {from} to {to} is not allowed.', [
-                '{from}' => Yii::$app->formatter->format($sourceState, $model->getAttributeFormat($model->stateAttributeName)),
-                '{to}'   => Yii::$app->formatter->format($targetState, $model->getAttributeFormat($model->stateAttributeName)),
+                'from' => Yii::$app->formatter->format($sourceState, $model->getAttributeFormat($model->stateAttributeName)),
+                'to'   => Yii::$app->formatter->format($targetState, $model->getAttributeFormat($model->stateAttributeName)),
             ]));
         }
     }
@@ -195,7 +193,7 @@ class StateAction extends Action
      */
     public function afterTransition($model)
     {
-        $this->controller->redirect(['view', 'id'=>$model->id]);
+        $this->controller->redirect(['view', 'id' => $model->id]);
         Yii::app()->end();
     }
 
@@ -203,9 +201,9 @@ class StateAction extends Action
      * Renders the default confirmation view.
      * @param array $params
      */
-    public function render($params)
+    public function renderPartial($params)
     {
-        return $this->controller->render('@netis/yii2-fsm/views/confirm', $params);
+        return $this->controller->renderPartial('@netis/yii2-fsm/views/confirm', $params);
     }
 
     /**
@@ -298,7 +296,7 @@ class StateAction extends Action
      * @param mixed $sourceState current value of the state attribute
      * @param boolean $isAdmin if true, won't check access and all transitions will be displayed
      */
-    public static function getContextMenuItem($action, $transitions, $model, $sourceState, $isAdmin=false)
+    public static function getContextMenuItem($action, $transitions, $model, $sourceState, $isAdmin = false)
     {
         $statusMenu = [
             'label' => Yii::t('app', 'Status changes'),
@@ -307,15 +305,16 @@ class StateAction extends Action
             'items' => [],
         ];
 
-        foreach($transitions as $targetState => $target) {
-            $state = $target['state'];
+        foreach ($transitions as $targetState => $target) {
+            $state   = $target['state'];
             $sources = $target['sources'];
-            if (!$isAdmin && !isset($sources[$sourceState])) continue;
+            if (!$isAdmin && !isset($sources[$sourceState]))
+                continue;
 
             $enabled = $isAdmin ? true : null;
             if (isset($sources[$sourceState])) {
                 $sourceStateObject = $sources[$sourceState];
-                $authItem = $sourceStateObject->auth_item_name;
+                $authItem          = $sourceStateObject->auth_item_name;
                 if (trim($authItem) === '') {
                     $checkedAccess[$authItem] = true;
                 }
@@ -323,19 +322,20 @@ class StateAction extends Action
                 if (isset($checkedAccess[$authItem])) {
                     $status = $checkedAccess[$authItem];
                 } else {
-                    $status = $checkedAccess[$authItem] = ($this->checkAccess && call_user_func($this->checkAccess, $authItem, $model));
+                    $status                   = $checkedAccess[$authItem] = ($this->checkAccess && call_user_func($this->checkAccess, $authItem, $model));
                 }
                 $enabled = ($enabled === null || $enabled) && $status;
             }
-            $url = array_merge([$action->id], self::getUrlParams($state, $model, $targetState, $action->id, true));
+            $url                   = array_merge([$action->id], self::getUrlParams($state, $model, $targetState, Yii::$app->controller->action->id, true));
             $statusMenu['items'][] = [
                 'label' => $state->label,
                 'icon'  => $state->icon,
                 'url'   => $enabled ? $url : null,
             ];
         }
-        
+
         $statusMenu['disabled'] = $model->primaryKey === null || empty($statusMenu['items']);
         return $statusMenu;
     }
+
 }
