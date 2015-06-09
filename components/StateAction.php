@@ -327,8 +327,9 @@ class StateAction extends Action
                 $enabled = ($enabled === null || $enabled) && $status;
             }
             $url                   = array_merge([$action->id], self::getUrlParams($state, $model, $targetState, Yii::$app->controller->action->id, true));
+            $label = $model->translateStateLabel($state->label);
             $statusMenu['items'][] = [
-                'label' => $state->label,
+                'label' => $label,
                 'icon'  => $state->icon,
                 'url'   => $enabled ? $url : null,
             ];
