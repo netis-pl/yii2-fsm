@@ -78,7 +78,7 @@ class StateAction extends Action
         $this->checkTransition($model, $stateChange, $sourceState, $targetState);
 
         if (isset($stateChange['state']->auth_item_name) && (!$this->checkAccess || !call_user_func($this->checkAccess, $stateChange['state']->auth_item_name, $model))) {
-            throw new HttpException(400, Yii::t('netis/fsm/app', 'You don\'t have necessary permissions to move the application from {from} to {to}.', array(
+            throw new HttpException(400, Yii::t('netis/fsm/app', 'You don\'t have necessary permissions to move state from {from} to {to}.', array(
                 'from' => Yii::$app->formatter->format($sourceState, $model->getAttributeFormat($model->stateAttributeName)),
                 'to'   => Yii::$app->formatter->format($targetState, $model->getAttributeFormat($model->stateAttributeName)),
             )));
