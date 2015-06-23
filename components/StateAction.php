@@ -41,8 +41,10 @@ class StateAction extends UpdateAction
     /**
      * Runs the action.
      */
-    public function run($id, $targetState = null, $confirmed = false)
+    public function run($id = null)
     {
+        $targetState = Yii::$app->request->getQueryParam('targetState');
+        $confirmed = Yii::$app->request->getQueryParam('confirmed', false);
         $model = $this->initModel($id);
         list($stateChange, $sourceState, $format) = $this->prepare($model);
         if (($response = $this->checkTransition($model, $stateChange, $sourceState, $targetState)) !== true) {
