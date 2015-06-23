@@ -2,10 +2,11 @@
 
 namespace netis\fsm\components;
 
+use netis\utils\widgets\FormBuilder;
 use yii\helpers\Html;
 use yii\helpers\Url;
 use yii\web\HttpException;
-use netis\utils\crud\Action;
+use netis\utils\crud\UpdateAction;
 use yii;
 
 /**
@@ -16,52 +17,25 @@ use yii;
  * Installation steps:
  * * optionally, call the fsm console command to generate migrations, run them and create two models
  * * implement the IStateful interface in the main model
- * * include a new 'transition' scenario in validation rules, most often it would make a 'notes' attribute safe or even required
+ * * include a new 'transition' scenario in validation rules, most often it would make a 'notes' attribute
+ *   safe or even required
  * * optionally, add an inline validator that would depend on the source state
  * * copy the views into the controller's viewPath
  * * call StateAction::getContextMenuItem when building the context menu in CRUD controller
  *
  * @author Jan Was <jwas@nets.com.pl>
- * @property $stateAuthItemTemplate string
- * @property $updateAuthItemTemplate string
  */
-class StateAction extends Action
+class StateAction extends UpdateAction
 {
-
     /**
-     * @var string Auth item used to check access to update the main model. If null, the update button won't be available.
+     * @inheritdoc
      */
-    protected $_updateAuthItemTemplate;
-
-    /**
-     * @var callable a closure to check if current user is a superuser and authorization should be skipped
-     */
-    public $isAdminCallback;
-
-    /**
-     * @param string $id
-     * @param string $controller
-     */
-    public function __construct($id, $controller)
+    public function init()
     {
-        parent::__construct($id, $controller);
-        if (!is_a($controller, 'netis\utils\crud\ActiveController')) {
-            throw new HttpException('Invalid configuration - BulkAction can only be used in a NetController.');
+        if (!$this->controller instanceof \netis\utils\crud\ActiveController) {
+            throw new yii\base\InvalidConfigException('StateAction can only be used in a controller extending \netis\utils\crud\ActiveController.');
         }
-    }
-
-    public function setUpdateAuthItemTemplate($authTemplate)
-    {
-        if (is_string($authTemplate)) {
-            $this->_updateAuthItemTemplate = strtr($authTemplate, [
-                '{modelClass}' => $this->controller->authModelClass,
-            ]);
-        }
-    }
-
-    public function getUpdateAuthItemTemplate()
-    {
-        return $this->_updateAuthItemTemplate;
+        parent::init();
     }
 
     /**
@@ -69,52 +43,75 @@ class StateAction extends Action
      */
     public function run($id, $targetState = null, $confirmed = false)
     {
-        $model = $this->findModel($id);
-        if ($this->controller->checkAccessInActions && (!$this->checkAccess || !call_user_func($this->checkAccess, $this->id, $model))) {
-            throw new HttpException(403, Yii::t('netis/fsm/app', 'You are not authorized to perform this action on this object.'));
-        }
-        $model->scenario = IStateful::SCENARIO;
+        $model = $this->initModel($id);
         list($stateChange, $sourceState, $format) = $this->prepare($model);
-        $this->checkTransition($model, $stateChange, $sourceState, $targetState);
+        if (($response = $this->checkTransition($model, $stateChange, $sourceState, $targetState)) !== true) {
+            return $response;
+        }
 
-        if (isset($stateChange['state']->auth_item_name) && (!$this->checkAccess || !call_user_func($this->checkAccess, $stateChange['state']->auth_item_name, $model))) {
-            throw new HttpException(400, Yii::t('netis/fsm/app', 'You don\'t have necessary permissions to move state from {from} to {to}.', array(
-                'from' => Yii::$app->formatter->format($sourceState, $model->getAttributeFormat($model->stateAttributeName)),
-                'to'   => Yii::$app->formatter->format($targetState, $model->getAttributeFormat($model->stateAttributeName)),
-            )));
+        if (isset($stateChange['state']->auth_item_name) && $this->checkAccess) {
+            call_user_func($this->checkAccess, $stateChange['state']->auth_item_name, $model);
         }
 
         if (!isset($stateChange['targets'][$targetState])) {
-            throw new HttpException(400, Yii::t('netis/fsm/app', 'You cannot change state from {from} to {to} because such state transition is undefined.', [
-                'from' => Yii::$app->formatter->format($sourceState, $model->getAttributeFormat($model->stateAttributeName)),
-                'to'   => Yii::$app->formatter->format($targetState, $model->getAttributeFormat($model->stateAttributeName)),
-            ]));
+            $message = Yii::t(
+                'netis/fsm/app',
+                'You cannot change state from {from} to {to} because such state transition is undefined.',
+                [
+                    'from' => Yii::$app->formatter->format($sourceState, $format),
+                    'to'   => Yii::$app->formatter->format($targetState, $format),
+                ]
+            );
+            throw new yii\web\BadRequestHttpException($message);
         }
         $model->setTransitionRules($targetState);
         if ($this->performTransition($model, $stateChange, $sourceState, $targetState, $confirmed)) {
             $this->afterTransition($model);
         }
 
-        return ['content' => $this->renderPartial([
-                'model'       => $model,
-                'sourceState' => $sourceState,
-                'targetState' => $targetState,
-                'format'      => $format,
-        ])];
+        return [
+            'model'       => $model,
+            'sourceState' => $sourceState,
+            'targetState' => $targetState,
+            'states'      => null,
+            'fields'      => FormBuilder::getFormFields($model, $this->getFields($model, 'form'), false, []),
+            'relations'   => $this->getModelRelations($model, $this->getExtraFields($model)),
+        ];
+    }
+
+    /**
+     * Loads the model and performs authorization check.
+     * @param string $id
+     * @return yii\db\ActiveRecord
+     * @throws yii\base\InvalidConfigException
+     * @throws yii\web\NotFoundHttpException
+     */
+    protected function initModel($id)
+    {
+        /* @var $model \yii\db\ActiveRecord */
+        $model = $this->findModel($id);
+        $model->scenario = IStateful::SCENARIO;
+        if ($this->checkAccess) {
+            call_user_func($this->checkAccess, $this->id, $model);
+        }
+        if (!$model instanceof IStateful) {
+            throw new yii\base\InvalidConfigException(
+                Yii::t('netis/fsm/app', 'Model {model} needs to implement the IStateful interface.', [
+                    'model' => $this->modelClass
+                ])
+            );
+        }
+        return $model;
     }
 
     /**
      * Loads the model specified by $id and prepares some data structures.
-     * @param CActiveRecord $model
-     * @return array contains values, in order: $stateChange(array), $sourceState(mixed), $uiType(string)
+     * @param \yii\db\ActiveRecord $model
+     * @return array contains values, in order: $stateChange(array), $sourceState(mixed), $format(string|array)
+     * @throws HttpException
      */
     public function prepare($model)
     {
-        if (!$model instanceof IStateful) {
-            throw new HttpException(500, Yii::t('netis/fsm/app', 'Model {model} needs to implement the IStateful interface.', [
-                'model' => $this->controller->modelClass
-            ]));
-        }
         $stateAttribute = $model->stateAttributeName;
         $stateChanges   = $model->getTransitionsGroupedBySource();
 
@@ -130,31 +127,29 @@ class StateAction extends Action
 
     /**
      * May render extra views for special cases and checks permissions.
-     * @param CActiveRecord $model
+     * @param \yii\db\ActiveRecord $model
      * @param array $stateChange
      * @param mixed $sourceState
      * @param string $targetState
+     * @return array|bool
      */
     public function checkTransition($model, $stateChange, $sourceState, $targetState)
     {
-        if ($targetState === null) {
-            // display all possible state transitions to select from
-            return $this->controller->renderPartial('@netis/yii2-fsm/views/state', [
-                        'model'       => $model,
-                        'targetState' => null,
-                        'states'      => $this->prepareStates($model),
-            ]);
-        } else if ((!is_callable($this->isAdminCallback) || !call_user_func($this->isAdminCallback)) && !isset($stateChange['targets'][$targetState])) {
-            throw new HttpException(400, Yii::t('netis/fsm/app', 'Changing status from {from} to {to} is not allowed.', [
-                'from' => Yii::$app->formatter->format($sourceState, $model->getAttributeFormat($model->stateAttributeName)),
-                'to'   => Yii::$app->formatter->format($targetState, $model->getAttributeFormat($model->stateAttributeName)),
-            ]));
+        if ($targetState !== null) {
+            return true;
         }
+        // display all possible state transitions to select from
+        return [
+            'model'       => $model,
+            'sourceState' => $sourceState,
+            'targetState' => null,
+            'states'      => $this->prepareStates($model),
+        ];
     }
 
     /**
      * Perform last checks and the actual state transition.
-     * @param CActiveRecord $model
+     * @param \yii\db\ActiveRecord $model
      * @param array $stateChange
      * @param mixed $sourceState
      * @param string $targetState
@@ -164,7 +159,8 @@ class StateAction extends Action
     public function performTransition($model, $stateChange, $sourceState, $targetState, $confirmed)
     {
         if ($targetState === $sourceState) {
-            $message = Yii::t('netis/fsm/app', 'Status has already been changed') . ', ' . Html::a(Yii::t('netis/fsm/app', 'return to'), Url::toRoute(['view', 'id' => $model->primaryKey]));
+            $message = Yii::t('netis/fsm/app', 'Status has already been changed') . ', '
+                . Html::a(Yii::t('netis/fsm/app', 'return to'), Url::toRoute(['view', 'id' => $model->primaryKey]));
             $this->setFlash('error', $message);
             return false;
         }
@@ -172,9 +168,9 @@ class StateAction extends Action
             return false;
         }
 
-        $oldAttributes                            = $model->getAttributes();
+        $oldAttributes = $model->getAttributes();
         // explicitly assign the new state value to avoid forcing the state attribute to be safe
-        $model->{$model->getStateAttributeName()} = $targetState;
+        $model->setAttribute($model->getStateAttributeName(), $targetState);
 
         if ($model->performTransition($oldAttributes, []) === false) {
             $this->setFlash('error', Yii::t('netis/fsm/app', 'Failed to save changes.'));
@@ -189,29 +185,23 @@ class StateAction extends Action
 
     /**
      * Called after successfuly executing performTransition.
-     * @param CActiveRecord $model
+     * @param \yii\db\ActiveRecord $model
      */
     public function afterTransition($model)
     {
-        $this->controller->redirect(['view', 'id' => $model->id]);
-        Yii::app()->end();
-    }
-
-    /**
-     * Renders the default confirmation view.
-     * @param array $params
-     */
-    public function renderPartial($params)
-    {
-        return $this->controller->renderPartial('@netis/yii2-fsm/views/confirm', $params);
+        $id = $this->exportKey($model->getPrimaryKey(true));
+        $response = Yii::$app->getResponse();
+        $response->setStatusCode(201);
+        $response->getHeaders()->set('Location', Url::toRoute([$this->viewAction, 'id' => $id], true));
     }
 
     /**
      * Creates url params for a route to specific state transition.
      * @param StateTransition $state
-     * @param CActiveRecord $model
+     * @param \yii\db\ActiveRecord $model
      * @param string $targetState
-     * @param boolean is the url going to be used in a context menu
+     * @param string $id
+     * @param boolean $contextMenu the url going to be used in a context menu
      * @return array url params to be used with a route
      */
     public static function getUrlParams($state, $model, $targetState, $id, $contextMenu = false)
@@ -227,45 +217,34 @@ class StateAction extends Action
 
     /**
      * Builds an array containing all possible status changes and result of validating every transition.
-     * @params mixed $model
+     * @param \netis\utils\crud\ActiveRecord $model
      * @return array
      */
     public function prepareStates($model)
     {
         $checkedAccess = [];
         $result        = [];
-        if ($this->updateAuthItemTemplate !== null) {
-            $authItem                 = $this->updateAuthItemTemplate;
-            $checkedAccess[$authItem] = ($this->checkAccess && call_user_func($this->checkAccess, $authItem, $model));
-            $result[]                 = [
-                'label'   => Yii::t('netis/fsm/app', 'Update item'),
-                'icon'    => 'pencil',
-                'url'     => Url::toRoute(['update', 'id' => $model->getPrimaryKey()]),
-                'enabled' => $checkedAccess[$authItem],
-                'class'   => 'btn btn-success',
-            ];
-        }
-        $valid       = true;
         $attribute   = $model->stateAttributeName;
-        $sourceState = $model->$attribute;
+        $sourceState = $model->getAttribute($attribute);
         foreach ($model->getTransitionsGroupedByTarget() as $targetState => $target) {
             $state   = $target['state'];
             $sources = $target['sources'];
 
-            if (!isset($sources[$sourceState]))
+            if (!isset($sources[$sourceState])) {
                 continue;
+            }
 
             $enabled           = null;
             $sourceStateObject = $sources[$sourceState];
-            //foreach($sources[$sourceState] as $sourceStateObject) {
             $authItem          = $sourceStateObject->auth_item_name;
-            if (isset($checkedAccess[$authItem])) {
-                $status = $checkedAccess[$authItem];
-            } else {
-                $status                   = $checkedAccess[$authItem] = ($this->checkAccess && call_user_func($this->checkAccess, $authItem, $model));
+            if (trim($authItem) === '') {
+                $checkedAccess[$authItem] = true;
+            } elseif (!is_callable($this->checkAccess)) {
+                $checkedAccess[$authItem] = false;
+            } elseif (!isset($checkedAccess[$authItem])) {
+                $checkedAccess[$authItem] = call_user_func($this->checkAccess, $authItem, $model);
             }
-            $enabled = ($enabled === null || $enabled) && $status;
-            //}
+            $enabled = ($enabled === null || $enabled) && $checkedAccess[$authItem];
 
             $valid = !$enabled || $model->isTransitionAllowed($targetState);
             $entry = [
@@ -290,13 +269,14 @@ class StateAction extends Action
 
     /**
      * Builds a menu item used in the context menu.
-     * @param StateAction $action target action
-     * @param array $transitions obtained by getGroupedByTarget()
-     * @param mixed $model target model
-     * @param mixed $sourceState current value of the state attribute
-     * @param boolean $isAdmin if true, won't check access and all transitions will be displayed
+     * @param string $actionId    target action id
+     * @param array $transitions  obtained by getGroupedByTarget()
+     * @param mixed $model        target model
+     * @param mixed $sourceState  current value of the state attribute
+     * @param callable $checkAccess should have the following signature: function ($action, $model)
+     * @return array
      */
-    public static function getContextMenuItem($action, $transitions, $model, $sourceState, $isAdmin = false)
+    public static function getContextMenuItem($actionId, $transitions, $model, $sourceState, $checkAccess)
     {
         $statusMenu = [
             'label' => Yii::t('netis/fsm/app', 'Status changes'),
@@ -308,25 +288,28 @@ class StateAction extends Action
         foreach ($transitions as $targetState => $target) {
             $state   = $target['state'];
             $sources = $target['sources'];
-            if (!$isAdmin && !isset($sources[$sourceState]))
+            if (!isset($sources[$sourceState])) {
                 continue;
+            }
 
-            $enabled = $isAdmin ? true : null;
+            $enabled = null;
             if (isset($sources[$sourceState])) {
                 $sourceStateObject = $sources[$sourceState];
                 $authItem          = $sourceStateObject->auth_item_name;
                 if (trim($authItem) === '') {
                     $checkedAccess[$authItem] = true;
+                } elseif (!is_callable($checkAccess)) {
+                    $checkedAccess[$authItem] = false;
+                } elseif (!isset($checkedAccess[$authItem])) {
+                    $checkedAccess[$authItem] = call_user_func($checkAccess, $authItem, $model);
                 }
 
-                if (isset($checkedAccess[$authItem])) {
-                    $status = $checkedAccess[$authItem];
-                } else {
-                    $status                   = $checkedAccess[$authItem] = ($this->checkAccess && call_user_func($this->checkAccess, $authItem, $model));
-                }
-                $enabled = ($enabled === null || $enabled) && $status;
+                $enabled = ($enabled === null || $enabled) && $checkedAccess[$authItem];
             }
-            $url                   = array_merge([$action->id], self::getUrlParams($state, $model, $targetState, Yii::$app->controller->action->id, true));
+            $url = array_merge(
+                [$actionId],
+                self::getUrlParams($state, $model, $targetState, Yii::$app->controller->action->id, true)
+            );
             $label = $model->translateStateLabel($state->label);
             $statusMenu['items'][] = [
                 'label' => $label,
