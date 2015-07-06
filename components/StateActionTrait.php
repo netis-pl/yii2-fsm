@@ -168,11 +168,10 @@ trait StateActionTrait
             return false;
         }
 
-        $oldAttributes = $model->getAttributes();
         // explicitly assign the new state value to avoid forcing the state attribute to be safe
         $model->setAttribute($model->getStateAttributeName(), $targetState);
 
-        if ($model->performTransition($oldAttributes, []) === false) {
+        if ($model->performTransition() === false) {
             $this->setFlash('error', Yii::t('netis/fsm/app', 'Failed to save changes.'));
             return false;
         }

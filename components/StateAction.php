@@ -68,9 +68,8 @@ class StateAction extends UpdateAction
                 [$actionId],
                 self::getUrlParams($state, $model, $targetState, Yii::$app->controller->action->id, true)
             );
-            $label = $model->translateStateLabel($state->label);
             $statusMenu['items'][] = [
-                'label' => $label,
+                'label' => $state->label,
                 'icon'  => $state->icon,
                 'url'   => $enabled ? $url : null,
             ];

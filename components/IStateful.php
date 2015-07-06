@@ -39,16 +39,14 @@ interface IStateful
      * Similar to save(), it validates and then saves attributes marked as safe in the IStateful::SCENARIO.
      * Besides that it could also log the change and/or raise events.
      *
-     * @param $oldAttributes array
      * @param $data array
      * @return boolean
      */
-    public function performTransition($oldAttributes, $data);
+    public function performTransition($data = []);
 
     /**
      * Modifies validators list obtained through getValidators() adding rules for a specific transition.
      * @param $targetState mixed
-     * @return 
      */
     public function setTransitionRules($targetState);
 }
