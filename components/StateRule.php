@@ -9,7 +9,7 @@ use yii\rbac\Rule;
  * Checks if model is in required state.
  * Supported options set through the data property:
  * * allowedStates array, required
- * * modelParamName string, required, defaults to 'model'
+ * * modelParamName string, optional, defaults to 'model'
  * * relationName string, optional, should be name of a hasOne relation to fetch a different model to check
  *
  * Checked model should implement the IStateful interface.
