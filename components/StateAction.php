@@ -37,7 +37,7 @@ class StateAction extends UpdateAction
     public static function getContextMenuItem($actionId, $transitions, $model, $sourceState, $checkAccess)
     {
         $statusMenu = [
-            'label' => Yii::t('netis/fsm/app', 'Status changes'),
+            'label' => Yii::t('netis/fsm/app', 'State change'),
             'icon'  => 'share',
             'url'   => '#',
             'items' => [],

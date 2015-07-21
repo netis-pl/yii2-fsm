@@ -26,7 +26,7 @@ return [
     'Failed to save changes.'                                                                 => 'Nie udało się zapisać zmian.',
     'Model {model} needs to implement the IStateful interface.'                               => 'Model {model} musi implementować interfejs IStateful.',
     'Reason'                                                                                  => 'Powód',
-    'Status changes'                                                                          => 'Zmiana statusu',
+    'State change'                                                                            => 'Zmiana stanu',
     'Status has already been changed'                                                         => 'Status został zmieniony',
     'Update item'                                                                             => 'Edytuj',
     'You are not authorized to perform this action on this object.'                           => 'Nie jesteś upoważniony do wykonywania działań na tym obiekcie.',

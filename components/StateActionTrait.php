@@ -49,7 +49,7 @@ trait StateActionTrait
         $targetState = Yii::$app->request->getQueryParam('targetState');
         $confirmed = Yii::$app->request->getQueryParam('confirmed', false);
         $model = $this->initModel($id);
-        list($stateChange, $sourceState, $format) = $this->prepare($model);
+        list($stateChange, $sourceState, $format) = $this->prepare($model, $targetState);
         if (($response = $this->checkTransition($model, $stateChange, $sourceState, $targetState)) !== true) {
             return $response;
         }
@@ -107,10 +107,11 @@ trait StateActionTrait
     /**
      * Loads the model specified by $id and prepares some data structures.
      * @param \yii\db\ActiveRecord $model
+     * @param string $targetState
      * @return array contains values, in order: $stateChange(array), $sourceState(mixed), $format(string|array)
      * @throws HttpException
      */
-    public function prepare($model)
+    public function prepare($model, $targetState)
     {
         $stateAttribute = $model->stateAttributeName;
         $stateChanges   = $model->getTransitionsGroupedBySource();
@@ -121,6 +122,9 @@ trait StateActionTrait
             $stateChange = ['state' => null, 'targets' => []];
         } else {
             $stateChange = $stateChanges[$sourceState];
+            if (isset($stateChange['targets'][$targetState])) {
+                $stateChange['state'] = $stateChange['targets'][$targetState];
+            }
         }
         return [$stateChange, $sourceState, $format];
     }
@@ -141,6 +145,7 @@ trait StateActionTrait
         // display all possible state transitions to select from
         return [
             'model'       => $model,
+            'stateChange' => $stateChange,
             'sourceState' => $sourceState,
             'targetState' => null,
             'states'      => $this->prepareStates($model),
