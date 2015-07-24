@@ -62,10 +62,10 @@ class FsmController extends Controller
             '{TableName}'      => $model->tableName(),
             '{TableSuffix}'    => $tableSuffix,
             '{Schema}'         => !empty($schema) ? $schema . '.' : null,
-            '{PrimaryKey}'     => $model->tableSchema->primaryKey[0],
-            '{ForeignKey}'     => Inflector::singularize($mainModel->tableSchema->name) . '_id',
+            '{PrimaryKey}'     => $model::primaryKey()[0],
+            '{ForeignKey}'     => Inflector::singularize($mainModel::tableName()) . '_id',
             '{MainTableName}'  => $mainModel->tableName(),
-            '{MainPrimaryKey}' => $mainModel->tableSchema->primaryKey[0],
+            '{MainPrimaryKey}' => $mainModel::primaryKey()[0],
         ]);
         $file          = $this->migrationPath . DIRECTORY_SEPARATOR . $name . '.php';
         if ($this->confirm("Create new migration '$file'?")) {
