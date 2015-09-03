@@ -25,23 +25,23 @@ class StateAction extends UpdateAction
 {
     use StateActionTrait;
 
+    public $useDropDownMenu = true;
+
     /**
      * Builds a menu item used in the context menu.
-     * @param string $actionId    target action id
-     * @param array $transitions  obtained by getGroupedByTarget()
-     * @param mixed $model        target model
-     * @param mixed $sourceState  current value of the state attribute
+     *
+     * @param string   $actionId    target action id
+     * @param array    $transitions obtained by getGroupedByTarget()
+     * @param mixed    $model       target model
+     * @param mixed    $sourceState current value of the state attribute
      * @param callable $checkAccess should have the following signature: function ($action, $model)
+     * @param bool     $useDropDownMenu should this method create drop down menu or buttons
+     *
      * @return array
      */
-    public static function getContextMenuItem($actionId, $transitions, $model, $sourceState, $checkAccess)
+    public static function getContextMenuItem($actionId, $transitions, $model, $sourceState, $checkAccess, $useDropDownMenu = true)
     {
-        $statusMenu = [
-            'label' => Yii::t('netis/fsm/app', 'State change'),
-            'icon'  => 'share',
-            'url'   => '#',
-            'items' => [],
-        ];
+        $menu = [];
 
         foreach ($transitions as $targetState => $target) {
             $state   = $target['state'];
@@ -68,15 +68,26 @@ class StateAction extends UpdateAction
                 [$actionId],
                 self::getUrlParams($state, $model, $targetState, Yii::$app->controller->action->id, true)
             );
-            $statusMenu['items'][] = [
+
+            $menu[$actionId . '-' . $targetState] = [
                 'label' => $state->label,
                 'icon'  => $state->icon,
                 'url'   => $enabled ? $url : null,
             ];
         }
 
-        $statusMenu['disabled'] = $model->primaryKey === null || empty($statusMenu['items']);
-        return $statusMenu;
+        if (!$useDropDownMenu) {
+            return $menu;
+        }
+        return [
+            'state' => [
+                'label'    => Yii::t('netis/fsm/app', 'State change'),
+                'disabled' => $model->primaryKey === null || empty($menu),
+                'icon'     => 'share',
+                'url'      => '#',
+                'items'    => array_values($menu),
+            ],
+        ];
     }
 
 }
