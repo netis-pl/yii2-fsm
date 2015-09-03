@@ -25,8 +25,6 @@ class StateAction extends UpdateAction
 {
     use StateActionTrait;
 
-    public $useDropDownMenu = true;
-
     /**
      * Builds a menu item used in the context menu.
      *
