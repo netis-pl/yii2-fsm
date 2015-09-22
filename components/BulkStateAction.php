@@ -114,7 +114,7 @@ class BulkStateAction extends BaseBulkAction
         $baseModel                                  = new $this->controller->modelClass;
         $baseModel->scenario                        = IStateful::SCENARIO;
         $baseModel->{$baseModel->stateAttributeName} = $this->getSourceState($baseModel);
-        list($stateChange, $sourceState, $uiType) = $this->prepare($baseModel, $targetState);
+        list($stateChange, $sourceState, $uiType) = $this->traitPrepare($baseModel, $targetState);
 
         $trx = null;
         if ($this->singleTransaction) {
