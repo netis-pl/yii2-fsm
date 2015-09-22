@@ -9,7 +9,7 @@ use yii;
 /**
  * BulkStateAction works like StateAction, only on a group of records.
  *
- * @see StateAction
+ * @see    StateAction
  *
  * @author jwas
  */
@@ -22,14 +22,14 @@ class BulkStateAction extends BaseBulkAction
     /**
      * @var boolean Is the job run in a single query.
      */
-    public $singleQuery               = false;
+    public $singleQuery = false;
 
     /**
      * @var boolean Is the job run in a single transaction.
      * WARNING! Implies a single batch which may run out of execution time.
      * Enable this if there can be a SQL error that would interrupt the whole batch.
      */
-    public $singleTransaction         = false;
+    public $singleTransaction = false;
 
     /**
      * @var string A route to redirect to after finishing the job.
@@ -40,11 +40,11 @@ class BulkStateAction extends BaseBulkAction
     /**
      * @var string Key for flash message set after finishing the job.
      */
-    public $postFlashKey              = 'success';
+    public $postFlashKey = 'success';
 
     /**
-     * This need to be overwritten because {@link BaseBulkAction} and {@link StateTraitAction} both has run method defined.
-     * We want to call run from {@link BaseBulkAction} but PHP takes from trait first.
+     * This need to be overwritten because {@link BaseBulkAction} and {@link StateTraitAction} both has run method
+     * defined. We want to call run from {@link BaseBulkAction} but PHP takes from trait first.
      *
      * @param $step
      *
@@ -67,7 +67,10 @@ class BulkStateAction extends BaseBulkAction
         $sourceStates = $this->getQuery()->select($model->getStateAttributeName())->distinct()->column();
 
         if (count($sourceStates) > 1) {
-            throw new yii\web\BadRequestHttpException(Yii::t('netis/fsm/app', 'All selected models must have same source state.'));
+            throw new yii\web\BadRequestHttpException(Yii::t(
+                'netis/fsm/app',
+                'All selected models must have same source state.'
+            ));
         }
 
         return reset($sourceStates);
@@ -78,7 +81,7 @@ class BulkStateAction extends BaseBulkAction
      */
     public function prepare()
     {
-        $targetState                         = Yii::$app->request->getQueryParam('targetState');
+        $targetState = Yii::$app->request->getQueryParam('targetState');
         if (trim($targetState) === '') {
             throw new yii\web\BadRequestHttpException('Target state cannot be empty');
         }
@@ -90,6 +93,10 @@ class BulkStateAction extends BaseBulkAction
         list($stateChange, $sourceState, $uiType) = $this->traitPrepare($model, $targetState);
 
         $this->checkTransition($model, $stateChange, $sourceState, $targetState);
+
+        if (isset($stateChange['state']->auth_item_name) && $this->checkAccess) {
+            call_user_func($this->checkAccess, $stateChange['state']->auth_item_name, $model);
+        }
 
         $model->setTransitionRules($targetState);
 
@@ -104,15 +111,15 @@ class BulkStateAction extends BaseBulkAction
     /**
      * Performs state changes.
      */
-    public function runBatch()
+    public function execute()
     {
         if (($targetState = Yii::$app->request->getQueryParam('targetState')) === null) {
             throw new yii\web\BadRequestHttpException(Yii::t('netis/fsm/yii', 'Your request is invalid.'));
         }
 
         /** @var IStateful|\netis\utils\crud\ActiveRecord $baseModel */
-        $baseModel                                  = new $this->controller->modelClass;
-        $baseModel->scenario                        = IStateful::SCENARIO;
+        $baseModel                                   = new $this->controller->modelClass;
+        $baseModel->scenario                         = IStateful::SCENARIO;
         $baseModel->{$baseModel->stateAttributeName} = $this->getSourceState($baseModel);
         list($stateChange, $sourceState, $uiType) = $this->traitPrepare($baseModel, $targetState);
 
@@ -130,7 +137,9 @@ class BulkStateAction extends BaseBulkAction
         $failedKeys   = [];
         foreach ($dataProvider->getModels() as $model) {
             /** @var IStateful|\netis\utils\crud\ActiveRecord $model */
-            if (isset($stateChange['state']->auth_item_name) && !Yii::$app->user->can($stateChange['state']->auth_item_name, ['model' => $model])) {
+            if (isset($stateChange['state']->auth_item_name)
+                && !Yii::$app->user->can($stateChange['state']->auth_item_name, ['model' => $model])
+            ) {
                 $skippedKeys[] = $model->primaryKey;
             }
 
@@ -147,9 +156,9 @@ class BulkStateAction extends BaseBulkAction
         }
 
         $message = Yii::t('netis/fsm/app', '{number} out of {total} {model} has been successfully updated.', [
-                    'number' => $dataProvider->getTotalCount() - count($failedKeys) - count($skippedKeys),
-                    'total'  => $dataProvider->getTotalCount(),
-                    'model'  => $baseModel->getCrudLabel(),
+            'number' => $dataProvider->getTotalCount() - count($failedKeys) - count($skippedKeys),
+            'total'  => $dataProvider->getTotalCount(),
+            'model'  => $baseModel->getCrudLabel(),
         ]);
         $this->setFlash($this->postFlashKey, $message);
 
@@ -158,17 +167,20 @@ class BulkStateAction extends BaseBulkAction
 
     /**
      * Prepares response params, like fields and relations.
+     *
      * @param \netis\utils\crud\ActiveRecord $model
+     *
      * @return array
      */
     protected function getResponse($model)
     {
         $hiddenAttributes = array_filter(explode(',', Yii::$app->getRequest()->getQueryParam('hide', '')));
-        $fields = FormBuilder::getFormFields($model, $this->getFields($model, 'form'), false, $hiddenAttributes);
+        $fields           = FormBuilder::getFormFields($model, $this->getFields($model, 'form'), false,
+            $hiddenAttributes);
 
         return [
-            'model' => $model,
-            'fields' => empty($fields) ? [] : [$fields],
+            'model'     => $model,
+            'fields'    => empty($fields) ? [] : [$fields],
             'relations' => $this->getModelRelations($model, $this->getExtraFields($model)),
         ];
     }
