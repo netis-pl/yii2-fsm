@@ -17,7 +17,7 @@ class BulkStateAction extends BaseBulkAction
 {
     use StateActionTrait {
         prepare as traitPrepare;
-    };
+    }
 
     /**
      * @var boolean Is the job run in a single query.
@@ -77,9 +77,11 @@ class BulkStateAction extends BaseBulkAction
     }
 
     /**
-     * Renders a form and/or confirmation.
+     * @return IStateful|\netis\utils\crud\ActiveRecord
+     * @throws yii\base\InvalidConfigException
+     * @throws yii\web\BadRequestHttpException
      */
-    public function prepare()
+    protected function initModel()
     {
         $targetState = Yii::$app->request->getQueryParam('targetState');
         if (trim($targetState) === '') {
@@ -88,9 +90,29 @@ class BulkStateAction extends BaseBulkAction
 
         /** @var IStateful|\netis\utils\crud\ActiveRecord $model */
         $model                               = new $this->controller->modelClass;
+        if (!$model instanceof IStateful) {
+            throw new yii\base\InvalidConfigException(
+                Yii::t('netis/fsm/app', 'Model {model} needs to implement the IStateful interface.', [
+                    'model' => $this->modelClass
+                ])
+            );
+        }
+
         $model->scenario                     = IStateful::SCENARIO;
         $model->{$model->stateAttributeName} = $this->getSourceState($model);
-        list($stateChange, $sourceState, $uiType) = $this->traitPrepare($model, $targetState);
+        list($stateChange, $sourceState, $format) = $this->traitPrepare($model, $targetState);
+
+        if (!isset($stateChange['targets'][$targetState])) {
+            $message = Yii::t(
+                'netis/fsm/app',
+                'You cannot change state from {from} to {to} because such state transition is undefined.',
+                [
+                    'from' => Yii::$app->formatter->format($sourceState, $format),
+                    'to'   => Yii::$app->formatter->format($targetState, $format),
+                ]
+            );
+            throw new yii\web\BadRequestHttpException($message);
+        }
 
         $this->checkTransition($model, $stateChange, $sourceState, $targetState);
 
@@ -98,11 +120,26 @@ class BulkStateAction extends BaseBulkAction
             call_user_func($this->checkAccess, $stateChange['state']->auth_item_name, $model);
         }
 
+
         $model->setTransitionRules($targetState);
+        return $model;
+    }
+
+    /**
+     * Renders a form and/or confirmation.
+     */
+    public function prepare()
+    {
+        $targetState = Yii::$app->request->getQueryParam('targetState');
+
+        $model = $this->initModel();
+
+        list ($stateChange) = $this->traitPrepare($model, $targetState);
+        $stateAttribute = $model->stateAttributeName;
 
         return array_merge($this->getResponse($model), [
             'stateChange' => $stateChange,
-            'sourceState' => $sourceState,
+            'sourceState' => $model->$stateAttribute,
             'targetState' => $targetState,
             'states'      => null,
         ]);
@@ -113,15 +150,10 @@ class BulkStateAction extends BaseBulkAction
      */
     public function execute()
     {
-        if (($targetState = Yii::$app->request->getQueryParam('targetState')) === null) {
-            throw new yii\web\BadRequestHttpException(Yii::t('netis/fsm/yii', 'Your request is invalid.'));
-        }
+        $targetState = Yii::$app->request->getQueryParam('targetState');
 
-        /** @var IStateful|\netis\utils\crud\ActiveRecord $baseModel */
-        $baseModel                                   = new $this->controller->modelClass;
-        $baseModel->scenario                         = IStateful::SCENARIO;
-        $baseModel->{$baseModel->stateAttributeName} = $this->getSourceState($baseModel);
-        list($stateChange, $sourceState, $uiType) = $this->traitPrepare($baseModel, $targetState);
+        $baseModel = $this->initModel();
+        list ($stateChange) = $this->traitPrepare($baseModel, $targetState);
 
         $trx = null;
         if ($this->singleTransaction) {
@@ -132,20 +164,23 @@ class BulkStateAction extends BaseBulkAction
             throw new yii\base\InvalidConfigException('Not implemented - the singleQuery option has not been implemented yet.');
         }
 
+        $stateAttribute = $baseModel->getStateAttributeName();
         $dataProvider = $this->getDataProvider($baseModel, $this->getQuery());
         $skippedKeys  = [];
         $failedKeys   = [];
+
         foreach ($dataProvider->getModels() as $model) {
             /** @var IStateful|\netis\utils\crud\ActiveRecord $model */
             if (isset($stateChange['state']->auth_item_name)
                 && !Yii::$app->user->can($stateChange['state']->auth_item_name, ['model' => $model])
             ) {
                 $skippedKeys[] = $model->primaryKey;
+                continue;
             }
 
             $model->setTransitionRules($targetState);
 
-            if (!$this->performTransition($model, $stateChange, $sourceState, $targetState, true)) {
+            if (!$this->performTransition($model, $stateChange, $baseModel->$stateAttribute, $targetState, true)) {
                 //! @todo errors should be gathered and displayed somewhere, maybe add a postSummary action in this class
                 $failedKeys[] = self::implodeEscaped(self::KEYS_SEPARATOR, $model->primaryKey());
             }
