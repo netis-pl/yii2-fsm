@@ -85,7 +85,7 @@ trait StateActionTrait
     /**
      * Loads the model and performs authorization check.
      * @param string $id
-     * @return yii\db\ActiveRecord
+     * @return \netis\utils\crud\ActiveRecord|IStateful
      * @throws yii\base\InvalidConfigException
      * @throws yii\web\NotFoundHttpException
      */
@@ -106,7 +106,7 @@ trait StateActionTrait
 
     /**
      * Loads the model specified by $id and prepares some data structures.
-     * @param \yii\db\ActiveRecord $model
+     * @param \netis\utils\crud\ActiveRecord|IStateful $model
      * @param string $targetState
      * @return array contains values, in order: $stateChange(array), $sourceState(mixed), $format(string|array)
      * @throws HttpException
@@ -131,7 +131,7 @@ trait StateActionTrait
 
     /**
      * May render extra views for special cases and checks permissions.
-     * @param \yii\db\ActiveRecord $model
+     * @param \netis\utils\crud\ActiveRecord $model
      * @param array $stateChange
      * @param mixed $sourceState
      * @param string $targetState
@@ -154,7 +154,7 @@ trait StateActionTrait
 
     /**
      * Perform last checks and the actual state transition.
-     * @param \yii\db\ActiveRecord $model
+     * @param \yii\db\ActiveRecord|IStateful $model
      * @param array $stateChange
      * @param mixed $sourceState
      * @param string $targetState
@@ -181,6 +181,10 @@ trait StateActionTrait
             $this->setFlash('error', Yii::t('netis/fsm/app', 'Failed to save changes.'));
             return false;
         }
+        /**
+         * Target state can be changed in {@link beforeTransition()} or {@link IStateful::performTransition()}
+         */
+        $targetState = $model->getAttribute($model->getStateAttributeName());
         if (isset($stateChange['targets'][$targetState])) {
             // $stateChange['targets'][$targetState] may not be set when user is admin
             $this->setFlash('success', $stateChange['targets'][$targetState]->post_label);
@@ -231,7 +235,7 @@ trait StateActionTrait
 
     /**
      * Builds an array containing all possible status changes and result of validating every transition.
-     * @param \netis\utils\crud\ActiveRecord $model
+     * @param \netis\utils\crud\ActiveRecord|IStateful $model
      * @return array
      */
     public function prepareStates($model)
