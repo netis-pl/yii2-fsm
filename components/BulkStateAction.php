@@ -2,148 +2,141 @@
 
 namespace netis\fsm\components;
 
+use netis\utils\crud\BaseBulkAction;
+use netis\utils\widgets\FormBuilder;
 use yii;
+use yii\helpers\Url;
 
 /**
  * BulkStateAction works like StateAction, only on a group of records.
  *
- * @see StateAction
- *
- * Since this class is both an action provider and action class, remember to set properties for the subactions:
- * <pre>
- * return array(
- *     ...other actions...
- *     'update.' => array(
- *         'class' => 'BulkUpdateAction',
- *         'runBatch' => array(
- *             'postRoute' => 'index',
- *         ),
- *     ),
- * )
- * </pre>
+ * @see    StateAction
  *
  * @author jwas
- * @property $stateAuthItemTemplate string
- * @property $updateAuthItemTemplate string
- * @property $stateAction CAction
  */
 class BulkStateAction extends BaseBulkAction
 {
-
-    /**
-     * @var string Prefix of the auth item used to check access. Controller's $authModelClass is appended to it.
-     */
-    protected $_stateAuthItemTemplate = '{modelClass}.update';
-
-    /**
-     * @var string Auth item used to check access to update the main model. If null, the update button won't be available.
-     */
-    protected $_updateAuthItemTemplate;
-
-    /**
-     * @var callable A closure to check if current user is a superuser and authorization should be skipped.
-     */
-    public $isAdminCallback;
-
-    /**
-     * @var string Class name of state action used to perform single operations.
-     */
-    public $stateActionClass          = '@netis/yii2-fsm/components/StateAction';
+    use StateActionTrait {
+        prepare as traitPrepare;
+    }
 
     /**
      * @var boolean Is the job run in a single query.
      */
-    public $singleQuery               = false;
+    public $singleQuery = false;
 
     /**
      * @var boolean Is the job run in a single transaction.
      * WARNING! Implies a single batch which may run out of execution time.
      * Enable this if there can be a SQL error that would interrupt the whole batch.
      */
-    public $singleTransaction         = false;
+    public $singleTransaction = false;
 
     /**
-     * @var string A route to redirect to after finishing the job.
+     * @var array|callable A route to redirect to after finishing the job.
      * It should display flash messages.
      */
-    public $postRoute;
+    public $postRoute = ['index'];
 
     /**
      * @var string Key for flash message set after finishing the job.
      */
-    public $postFlashKey              = 'success';
-
-    /**
-     * @var CAction StateAction instance used to perform transitions.
-     */
-    private $_stateAction;
-
-    public function setStateAuthItemTemplate($authTemplate)
-    {
-        if (is_string($authTemplate)) {
-            $this->_stateAuthItemTemplate = strtr($authTemplate, [
-                '{modelClass}' => $this->controller->authModelClass,
-            ]);
-        }
-    }
-
-    public function getStateAuthItemTemplate()
-    {
-        return $this->_stateAuthItemTemplate;
-    }
-
-    public function setUpdateAuthItemTemplate($authTemplate)
-    {
-        if (is_string($authTemplate)) {
-            $this->_updateAuthItemTemplate = strtr($authTemplate, [
-                '{modelClass}' => $this->controller->authModelClass,
-            ]);
-        }
-    }
-
-    public function getUpdateAuthItemTemplate()
-    {
-        return $this->_updateAuthItemTemplate;
-    }
-
-    public function setStateAction($action)
-    {
-        $this->_stateAction = $action;
-    }
-
-    public function getStateAction()
-    {
-        if ($this->_stateAction === null) {
-            $this->_stateAction = Yii::createComponent([
-                        'class'                  => $this->stateActionClass,
-                        'stateAuthItemTemplate'  => $this->stateAuthItemTemplate,
-                        'updateAuthItemTemplate' => $this->updateAuthItemTemplate,
-                        'isAdminCallback'        => $this->isAdminCallback,
-                            ], $this->controller, $this->id);
-        }
-        return $this->_stateAction;
-    }
+    public $postFlashKey = 'success';
 
     /**
      * @inheritdoc
      */
-    public static function actions()
+    public $viewName = 'state';
+
+    /**
+     * @var string the name of the view action. This property is need to create the URL
+     * when the model is successfully created.
+     */
+    public $viewAction = 'view';
+
+    /**
+     * This need to be overwritten because {@link BaseBulkAction} and {@link StateTraitAction} both has run method
+     * defined. We want to call run from {@link BaseBulkAction} but PHP takes from trait first.
+     *
+     * @param $step
+     *
+     * @return bool|void
+     * @throws yii\base\InvalidConfigException
+     */
+    public function run($step)
     {
-        return self::defaultActions(__CLASS__);
+        return parent::run($step);
     }
 
+    /**
+     * @param IStateful $model
+     *
+     * @return mixed
+     * @throws yii\web\BadRequestHttpException
+     */
     protected function getSourceState($model)
     {
-        $criteria           = $this->getCriteria();
-        $criteria->select   = $model->dbConnection->quoteColumnName('t.' . $model->stateAttributeName) . ' as t0_c0';
-        $criteria->distinct = true;
-        $finder             = new EActiveFinder($model, is_array($criteria->with) ? $criteria->with : []);
-        $command            = $finder->createCommand($criteria);
-        $sourceStates       = $command->queryColumn();
+        $sourceStates = $this->getQuery()->select($model->getStateAttributeName())->distinct()->column();
+
         if (count($sourceStates) > 1) {
-            throw new CException(Yii::t('netis/fsm/app', 'All selected models must have same source state.'));
+            throw new yii\web\BadRequestHttpException(Yii::t(
+                'netis/fsm/app',
+                'All selected models must have same source state.'
+            ));
         }
+
         return reset($sourceStates);
+    }
+
+    /**
+     * Initializes base model and performs all necessary checks.
+     *
+     * @return IStateful|\netis\utils\crud\ActiveRecord
+     * @throws yii\base\InvalidConfigException
+     * @throws yii\web\BadRequestHttpException
+     */
+    protected function initModel()
+    {
+        $targetState = Yii::$app->request->getQueryParam('targetState');
+        if (trim($targetState) === '') {
+            throw new yii\web\BadRequestHttpException('Target state cannot be empty');
+        }
+
+        /** @var IStateful|\netis\utils\crud\ActiveRecord $model */
+        $model = new $this->controller->modelClass;
+        if (!$model instanceof IStateful) {
+            throw new yii\base\InvalidConfigException(
+                Yii::t('netis/fsm/app', 'Model {model} needs to implement the IStateful interface.', [
+                    'model' => $this->modelClass,
+                ])
+            );
+        }
+
+        $model->scenario                     = IStateful::SCENARIO;
+        $model->{$model->stateAttributeName} = $this->getSourceState($model);
+        list($stateChange, $sourceState, $format) = $this->traitPrepare($model, $targetState);
+
+        if (!isset($stateChange['targets'][$targetState])) {
+            $message = Yii::t(
+                'netis/fsm/app',
+                'You cannot change state from {from} to {to} because such state transition is undefined.',
+                [
+                    'from' => Yii::$app->formatter->format($sourceState, $format),
+                    'to'   => Yii::$app->formatter->format($targetState, $format),
+                ]
+            );
+            throw new yii\web\BadRequestHttpException($message);
+        }
+
+        $this->checkTransition($model, $stateChange, $sourceState, $targetState);
+
+        if (isset($stateChange['state']->auth_item_name) && $this->checkAccess) {
+            call_user_func($this->checkAccess, $stateChange['state']->auth_item_name, $model);
+        }
+
+        $model->setTransitionRules($targetState);
+
+        return $model;
     }
 
     /**
@@ -151,73 +144,130 @@ class BulkStateAction extends BaseBulkAction
      */
     public function prepare()
     {
-        $targetState                         = Yii::app()->request->getParam('targetState');
-        $model                               = new $this->controller->modelClass;
-        $model->scenario                     = IStateful::SCENARIO;
-        $model->{$model->stateAttributeName} = $this->getSourceState($model);
-        list($stateChange, $sourceState, $uiType) = $this->stateAction->prepare($model);
+        $targetState = Yii::$app->request->getQueryParam('targetState');
 
-        $this->stateAction->checkTransition($model, $stateChange, $sourceState, $targetState);
+        $model = $this->initModel();
 
-        $model->setTransitionRules($targetState);
-        $this->controller->initForm($model);
+        list ($stateChange) = $this->traitPrepare($model, $targetState);
+        $stateAttribute = $model->stateAttributeName;
 
-        $this->stateAction->render([
-            'model'          => $model,
-            'sourceState'    => $sourceState,
-            'targetState'    => $targetState,
-            'transition'     => $stateChange['targets'][$targetState],
-            'format'         => $uiType,
-            'stateActionUrl' => $this->controller->createUrl($this->mainId . '.runBatch'),
+        return array_merge($this->getResponse($model), [
+            'stateChange' => $stateChange,
+            'sourceState' => $model->$stateAttribute,
+            'targetState' => $targetState,
+            'states'      => null,
         ]);
     }
 
     /**
      * Performs state changes.
      */
-    public function runBatch()
+    public function execute()
     {
-        if (($targetState = Yii::app()->request->getParam('targetState')) === null) {
-            throw new CHttpException(400, Yii::t('netis/fsm/yii', 'Your request is invalid.'));
-        }
-        $baseModel                                  = new $this->controller->modelClass;
-        $baseModel->scenario                        = IStateful::SCENARIO;
-        $baseModel->{$baseMdel->stateAttributeName} = $this->getSourceState($baseMdel);
-        list($stateChange, $sourceState, $uiType) = $this->stateAction->prepare($baseModel);
+        $targetState = Yii::$app->request->getQueryParam('targetState');
 
-        if ($this->singleTransaction) {
-            $trx = $baseModel->dbConnection->currentTransaction === null ? $baseModel->dbConnection->beginTransaction() : null;
-        }
+        $baseModel = $this->initModel();
+        list ($stateChange) = $this->traitPrepare($baseModel, $targetState);
+
+        $transaction = $this->beforeExecute($baseModel);
+
         if ($this->singleQuery) {
-            throw new CException('Not implemented - the singleQuery option has not been implemented yet.');
+            throw new yii\base\InvalidConfigException('Not implemented - the singleQuery option has not been implemented yet.');
         }
-        $dataProvider = $this->getDataProvider($baseModel, $this->getCriteria());
-        $skippedKeys  = [];
-        $failedKeys   = [];
-        foreach ($dataProvider->getData() as $model) {
-            if (isset($stateChange['state']->auth_item_name) && !Yii::app()->user->checkAccess($stateChange['state']->auth_item_name, ['model' => $model])) {
+
+        $stateAttribute = $baseModel->getStateAttributeName();
+        $dataProvider   = $this->getDataProvider($baseModel, $this->getQuery());
+        $skippedKeys    = [];
+        $failedKeys     = [];
+
+        foreach ($dataProvider->getModels() as $model) {
+            /** @var IStateful|\netis\utils\crud\ActiveRecord $model */
+            if (isset($stateChange['state']->auth_item_name)
+                && !Yii::$app->user->can($stateChange['state']->auth_item_name, ['model' => $model])
+            ) {
                 $skippedKeys[] = $model->primaryKey;
+                continue;
             }
 
+            $model->scenario = IStateful::SCENARIO;
             $model->setTransitionRules($targetState);
-            $this->controller->initForm($model);
 
-            if (!$this->stateAction->performTransition($model, $stateChange, $sourceState, $targetState, true)) {
+            if (!$this->performTransition($model, $stateChange, $baseModel->$stateAttribute, $targetState, true)) {
                 //! @todo errors should be gathered and displayed somewhere, maybe add a postSummary action in this class
                 $failedKeys[] = $model->primaryKey;
             }
         }
 
-        if ($trx !== null) {
-            $trx->commit();
-        }
+        $this->afterExecute($baseModel, $transaction);
+
         $message = Yii::t('netis/fsm/app', '{number} out of {total} {model} has been successfully updated.', [
-                    'number' => $dataProvider->getTotalItemCount() - count($failedKeys) - count($skippedKeys),
-                    'total'  => $dataProvider->getTotalItemCount(),
-                    'model'  => $baseModel->label($dataProvider->getTotalItemCount()),
+            'number' => $dataProvider->getTotalCount() - count($failedKeys) - count($skippedKeys),
+            'total'  => $dataProvider->getTotalCount(),
+            'model'  => $baseModel->getCrudLabel(),
         ]);
-        Yii::app()->user->setFlash($this->postFlashKey, $message);
-        $this->controller->redirect([$this->postRoute]);
+        $this->setFlash($this->postFlashKey, $message);
+
+        $route = is_callable($this->postRoute) ? call_user_func($this->postRoute, $baseModel) : $this->postRoute;
+
+        $response = Yii::$app->getResponse();
+        $response->setStatusCode(201);
+        $response->getHeaders()->set('Location', Url::toRoute($route, true));
+
+        return $dataProvider;
     }
 
+    /**
+     * @param \netis\utils\crud\ActiveRecord $model
+     *
+     * @return null|yii\db\Transaction
+     */
+    protected function beforeExecute($model)
+    {
+        $trx = null;
+
+        if ($this->singleTransaction) {
+            $trx = $model->getDb()->getTransaction() === null ? $model->getDb()->beginTransaction() : null;
+        }
+
+        if ($model->getBehavior('trackable') !== null) {
+            $model->beginChangeset();
+        }
+
+        return $trx;
+    }
+
+    /**
+     * @param \netis\utils\crud\ActiveRecord $model
+     * @param null|yii\db\Transaction $transaction
+     */
+    protected function afterExecute($model, $transaction)
+    {
+        if ($model->getBehavior('trackable') !== null) {
+            $model->endChangeset();
+        }
+
+        if ($transaction !== null) {
+            $transaction->commit();
+        }
+    }
+
+    /**
+     * Prepares response params, like fields and relations.
+     *
+     * @param \netis\utils\crud\ActiveRecord $model
+     *
+     * @return array
+     */
+    protected function getResponse($model)
+    {
+        $hiddenAttributes = array_filter(explode(',', Yii::$app->getRequest()->getQueryParam('hide', '')));
+        $fields           = FormBuilder::getFormFields($model, $this->getFields($model, 'form'), false,
+            $hiddenAttributes);
+
+        return [
+            'model'     => $model,
+            'fields'    => empty($fields) ? [] : [$fields],
+            'relations' => $this->getModelRelations($model, $this->getExtraFields($model)),
+        ];
+    }
 }
