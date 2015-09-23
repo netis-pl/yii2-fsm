@@ -176,6 +176,7 @@ trait StateActionTrait
         // explicitly assign the new state value to avoid forcing the state attribute to be safe
         $model->setAttribute($model->getStateAttributeName(), $targetState);
 
+        $this->beforeTransition($model);
         if ($model->performTransition() === false) {
             $this->setFlash('error', Yii::t('netis/fsm/app', 'Failed to save changes.'));
             return false;
@@ -188,7 +189,16 @@ trait StateActionTrait
     }
 
     /**
-     * Called after successfuly executing performTransition.
+     * Called before executing performTransition.
+     * @param \yii\db\ActiveRecord $model
+     */
+    public function beforeTransition($model)
+    {
+
+    }
+
+    /**
+     * Called after successful {@link performTransition()} execution.
      * @param \yii\db\ActiveRecord $model
      */
     public function afterTransition($model)
