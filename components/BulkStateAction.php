@@ -5,6 +5,7 @@ namespace netis\fsm\components;
 use netis\utils\crud\BaseBulkAction;
 use netis\utils\widgets\FormBuilder;
 use yii;
+use yii\helpers\Url;
 
 /**
  * BulkStateAction works like StateAction, only on a group of records.
@@ -32,15 +33,26 @@ class BulkStateAction extends BaseBulkAction
     public $singleTransaction = false;
 
     /**
-     * @var string A route to redirect to after finishing the job.
+     * @var array|callable A route to redirect to after finishing the job.
      * It should display flash messages.
      */
-    public $postRoute = 'index';
+    public $postRoute = ['index'];
 
     /**
      * @var string Key for flash message set after finishing the job.
      */
     public $postFlashKey = 'success';
+
+    /**
+     * @inheritdoc
+     */
+    public $viewName = 'state';
+
+    /**
+     * @var string the name of the view action. This property is need to create the URL
+     * when the model is successfully created.
+     */
+    public $viewAction = 'view';
 
     /**
      * This need to be overwritten because {@link BaseBulkAction} and {@link StateTraitAction} both has run method
@@ -77,6 +89,8 @@ class BulkStateAction extends BaseBulkAction
     }
 
     /**
+     * Initializes base model and performs all necessary checks.
+     *
      * @return IStateful|\netis\utils\crud\ActiveRecord
      * @throws yii\base\InvalidConfigException
      * @throws yii\web\BadRequestHttpException
@@ -89,11 +103,11 @@ class BulkStateAction extends BaseBulkAction
         }
 
         /** @var IStateful|\netis\utils\crud\ActiveRecord $model */
-        $model                               = new $this->controller->modelClass;
+        $model = new $this->controller->modelClass;
         if (!$model instanceof IStateful) {
             throw new yii\base\InvalidConfigException(
                 Yii::t('netis/fsm/app', 'Model {model} needs to implement the IStateful interface.', [
-                    'model' => $this->modelClass
+                    'model' => $this->modelClass,
                 ])
             );
         }
@@ -120,8 +134,8 @@ class BulkStateAction extends BaseBulkAction
             call_user_func($this->checkAccess, $stateChange['state']->auth_item_name, $model);
         }
 
-
         $model->setTransitionRules($targetState);
+
         return $model;
     }
 
@@ -165,9 +179,9 @@ class BulkStateAction extends BaseBulkAction
         }
 
         $stateAttribute = $baseModel->getStateAttributeName();
-        $dataProvider = $this->getDataProvider($baseModel, $this->getQuery());
-        $skippedKeys  = [];
-        $failedKeys   = [];
+        $dataProvider   = $this->getDataProvider($baseModel, $this->getQuery());
+        $skippedKeys    = [];
+        $failedKeys     = [];
 
         foreach ($dataProvider->getModels() as $model) {
             /** @var IStateful|\netis\utils\crud\ActiveRecord $model */
@@ -178,11 +192,12 @@ class BulkStateAction extends BaseBulkAction
                 continue;
             }
 
+            $model->scenario = IStateful::SCENARIO;
             $model->setTransitionRules($targetState);
 
             if (!$this->performTransition($model, $stateChange, $baseModel->$stateAttribute, $targetState, true)) {
                 //! @todo errors should be gathered and displayed somewhere, maybe add a postSummary action in this class
-                $failedKeys[] = self::implodeEscaped(self::KEYS_SEPARATOR, $model->primaryKey());
+                $failedKeys[] = $model->primaryKey;
             }
         }
 
@@ -197,7 +212,13 @@ class BulkStateAction extends BaseBulkAction
         ]);
         $this->setFlash($this->postFlashKey, $message);
 
-        $this->controller->redirect([$this->postRoute]);
+        $route = is_callable($this->postRoute) ? call_user_func($this->postRoute, $baseModel) : $this->postRoute;
+
+        $response = Yii::$app->getResponse();
+        $response->setStatusCode(201);
+        $response->getHeaders()->set('Location', Url::toRoute($route, true));
+
+        return $dataProvider;
     }
 
     /**
