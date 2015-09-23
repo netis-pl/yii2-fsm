@@ -169,10 +169,7 @@ class BulkStateAction extends BaseBulkAction
         $baseModel = $this->initModel();
         list ($stateChange) = $this->traitPrepare($baseModel, $targetState);
 
-        $trx = null;
-        if ($this->singleTransaction) {
-            $trx = $baseModel->getDb()->getTransaction() === null ? $baseModel->getDb()->beginTransaction() : null;
-        }
+        $transaction = $this->beforeExecute($baseModel);
 
         if ($this->singleQuery) {
             throw new yii\base\InvalidConfigException('Not implemented - the singleQuery option has not been implemented yet.');
@@ -201,9 +198,7 @@ class BulkStateAction extends BaseBulkAction
             }
         }
 
-        if ($trx !== null) {
-            $trx->commit();
-        }
+        $this->afterExecute($baseModel, $transaction);
 
         $message = Yii::t('netis/fsm/app', '{number} out of {total} {model} has been successfully updated.', [
             'number' => $dataProvider->getTotalCount() - count($failedKeys) - count($skippedKeys),
@@ -219,6 +214,41 @@ class BulkStateAction extends BaseBulkAction
         $response->getHeaders()->set('Location', Url::toRoute($route, true));
 
         return $dataProvider;
+    }
+
+    /**
+     * @param \netis\utils\crud\ActiveRecord $model
+     *
+     * @return null|yii\db\Transaction
+     */
+    protected function beforeExecute($model)
+    {
+        $trx = null;
+
+        if ($this->singleTransaction) {
+            $trx = $model->getDb()->getTransaction() === null ? $model->getDb()->beginTransaction() : null;
+        }
+
+        if ($model->getBehavior('trackable') !== null) {
+            $model->beginChangeset();
+        }
+
+        return $trx;
+    }
+
+    /**
+     * @param \netis\utils\crud\ActiveRecord $model
+     * @param null|yii\db\Transaction $transaction
+     */
+    protected function afterExecute($model, $transaction)
+    {
+        if ($model->getBehavior('trackable') !== null) {
+            $model->endChangeset();
+        }
+
+        if ($transaction !== null) {
+            $transaction->commit();
+        }
     }
 
     /**
