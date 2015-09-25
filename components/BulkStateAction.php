@@ -149,7 +149,7 @@ class BulkStateAction extends BaseBulkAction
         $baseModel = $this->initModel();
         list ($stateChange, $sourceState) = $this->getTransition($baseModel, $targetState);
         $response = $this->checkTransition($baseModel, $stateChange, $sourceState, $targetState, true);
-
+        $stateAuthItem = isset($stateChange['state']->auth_item_name) ? $stateChange['state']->auth_item_name : null;
         $transaction = $this->beforeExecute($baseModel);
 
         if ($this->singleQuery) {
@@ -166,8 +166,8 @@ class BulkStateAction extends BaseBulkAction
 
         foreach ($dataProvider->getModels() as $model) {
             /** @var IStateful|\netis\utils\crud\ActiveRecord $model */
-            if (isset($stateChange['state']->auth_item_name)
-                && !Yii::$app->user->can($stateChange['state']->auth_item_name, ['model' => $model])
+            if (!$this->controller->hasAccess('update', $model)
+                || ($stateAuthItem !== null && !Yii::$app->user->can($stateAuthItem, ['model' => $model]))
             ) {
                 $skippedKeys[] = $model->primaryKey;
                 continue;

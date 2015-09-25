@@ -138,6 +138,8 @@ trait StateActionTrait
 
     /**
      * May render extra views for special cases and checks permissions.
+     * @fixme consider some way of disable auth check because this method is used by BulkStateAction which passes dummy model as $model parameter
+     *
      * @param \netis\utils\crud\ActiveRecord $model
      * @param array $stateChange
      * @param mixed $sourceState
