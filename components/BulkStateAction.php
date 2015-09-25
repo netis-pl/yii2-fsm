@@ -16,9 +16,7 @@ use yii\helpers\Url;
  */
 class BulkStateAction extends BaseBulkAction
 {
-    use StateActionTrait {
-        prepare as traitPrepare;
-    }
+    use StateActionTrait;
 
     /**
      * @var boolean Is the job run in a single query.
@@ -114,27 +112,6 @@ class BulkStateAction extends BaseBulkAction
 
         $model->scenario                     = IStateful::SCENARIO;
         $model->{$model->stateAttributeName} = $this->getSourceState($model);
-        list($stateChange, $sourceState, $format) = $this->traitPrepare($model, $targetState);
-
-        if (!isset($stateChange['targets'][$targetState])) {
-            $message = Yii::t(
-                'netis/fsm/app',
-                'You cannot change state from {from} to {to} because such state transition is undefined.',
-                [
-                    'from' => Yii::$app->formatter->format($sourceState, $format),
-                    'to'   => Yii::$app->formatter->format($targetState, $format),
-                ]
-            );
-            throw new yii\web\BadRequestHttpException($message);
-        }
-
-        $this->checkTransition($model, $stateChange, $sourceState, $targetState);
-
-        if (isset($stateChange['state']->auth_item_name) && $this->checkAccess) {
-            call_user_func($this->checkAccess, $stateChange['state']->auth_item_name, $model);
-        }
-
-        $model->setTransitionRules($targetState);
 
         return $model;
     }
@@ -148,12 +125,15 @@ class BulkStateAction extends BaseBulkAction
 
         $model = $this->initModel();
 
-        list ($stateChange) = $this->traitPrepare($model, $targetState);
-        $stateAttribute = $model->stateAttributeName;
+        list ($stateChange, $sourceState) = $this->getTransition($model, $targetState);
+        $response = $this->checkTransition($model, $stateChange, $sourceState, $targetState, true);
+        if (!is_bool($response)) {
+            return $response;
+        }
 
         return array_merge($this->getResponse($model), [
             'stateChange' => $stateChange,
-            'sourceState' => $model->$stateAttribute,
+            'sourceState' => $sourceState,
             'targetState' => $targetState,
             'states'      => null,
         ]);
@@ -167,7 +147,8 @@ class BulkStateAction extends BaseBulkAction
         $targetState = Yii::$app->request->getQueryParam('targetState');
 
         $baseModel = $this->initModel();
-        list ($stateChange) = $this->traitPrepare($baseModel, $targetState);
+        list ($stateChange, $sourceState) = $this->getTransition($baseModel, $targetState);
+        $response = $this->checkTransition($baseModel, $stateChange, $sourceState, $targetState, true);
 
         $transaction = $this->beforeExecute($baseModel);
 
@@ -175,10 +156,13 @@ class BulkStateAction extends BaseBulkAction
             throw new yii\base\InvalidConfigException('Not implemented - the singleQuery option has not been implemented yet.');
         }
 
-        $stateAttribute = $baseModel->getStateAttributeName();
         $dataProvider   = $this->getDataProvider($baseModel, $this->getQuery());
         $skippedKeys    = [];
         $failedKeys     = [];
+
+        if ($response !== true) {
+            return $dataProvider;
+        }
 
         foreach ($dataProvider->getModels() as $model) {
             /** @var IStateful|\netis\utils\crud\ActiveRecord $model */
@@ -192,7 +176,7 @@ class BulkStateAction extends BaseBulkAction
             $model->scenario = IStateful::SCENARIO;
             $model->setTransitionRules($targetState);
 
-            if (!$this->performTransition($model, $stateChange, $baseModel->$stateAttribute, $targetState, true)) {
+            if (!$this->performTransition($model, $stateChange, $sourceState, $targetState, true)) {
                 //! @todo errors should be gathered and displayed somewhere, maybe add a postSummary action in this class
                 $failedKeys[] = $model->primaryKey;
             }
@@ -261,8 +245,7 @@ class BulkStateAction extends BaseBulkAction
     protected function getResponse($model)
     {
         $hiddenAttributes = array_filter(explode(',', Yii::$app->getRequest()->getQueryParam('hide', '')));
-        $fields           = FormBuilder::getFormFields($model, $this->getFields($model, 'form'), false,
-            $hiddenAttributes);
+        $fields = FormBuilder::getFormFields($model, $this->getFields($model, 'form'), false, $hiddenAttributes);
 
         return [
             'model'     => $model,

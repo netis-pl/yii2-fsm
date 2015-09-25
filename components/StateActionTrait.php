@@ -49,29 +49,25 @@ trait StateActionTrait
         $targetState = Yii::$app->request->getQueryParam('targetState');
         $confirmed = Yii::$app->request->getQueryParam('confirmed', false);
         $model = $this->initModel($id);
-        list($stateChange, $sourceState, $format) = $this->prepare($model, $targetState);
-        if (($response = $this->checkTransition($model, $stateChange, $sourceState, $targetState)) !== true) {
+        list($stateChange, $sourceState) = $this->getTransition($model, $targetState);
+
+        $response = $this->checkTransition($model, $stateChange, $sourceState, $targetState, $confirmed);
+        if (!is_bool($response)) {
             return $response;
         }
-
-        if (isset($stateChange['state']->auth_item_name) && $this->checkAccess) {
-            call_user_func($this->checkAccess, $stateChange['state']->auth_item_name, $model);
-        }
-
-        if (!isset($stateChange['targets'][$targetState])) {
-            $message = Yii::t(
-                'netis/fsm/app',
-                'You cannot change state from {from} to {to} because such state transition is undefined.',
-                [
-                    'from' => Yii::$app->formatter->format($sourceState, $format),
-                    'to'   => Yii::$app->formatter->format($targetState, $format),
-                ]
-            );
-            throw new yii\web\BadRequestHttpException($message);
-        }
-        $model->setTransitionRules($targetState);
-        if ($this->performTransition($model, $stateChange, $sourceState, $targetState, $confirmed)) {
-            $this->afterTransition($model);
+        if ($response === true) {
+            if ($this->performTransition($model, $stateChange, $sourceState, $targetState, $confirmed)) {
+                /**
+                 * Target state can be changed in {@link beforeTransition()} or {@link IStateful::performTransition()}
+                 */
+                $targetState = $model->getAttribute($model->getStateAttributeName());
+                if (isset($stateChange['targets'][$targetState])) {
+                    // $stateChange['targets'][$targetState] may not be set when user is admin
+                    $this->setFlash('success', $stateChange['targets'][$targetState]->post_label);
+                }
+            } else {
+                $this->setFlash('error', Yii::t('netis/fsm/app', 'Failed to save changes.'));
+            }
         }
 
         return array_merge($this->getResponse($model), [
@@ -111,12 +107,11 @@ trait StateActionTrait
      * @return array contains values, in order: $stateChange(array), $sourceState(mixed), $format(string|array)
      * @throws HttpException
      */
-    public function prepare($model, $targetState)
+    public function getTransition($model, $targetState)
     {
         $stateAttribute = $model->stateAttributeName;
         $stateChanges   = $model->getTransitionsGroupedBySource();
 
-        $format      = $model->getAttributeFormat($stateAttribute);
         $sourceState = $model->$stateAttribute;
         if (!isset($stateChanges[$sourceState])) {
             $stateChange = ['state' => null, 'targets' => []];
@@ -126,7 +121,7 @@ trait StateActionTrait
                 $stateChange['state'] = $stateChange['targets'][$targetState];
             }
         }
-        return [$stateChange, $sourceState, $format];
+        return [$stateChange, $sourceState];
     }
 
     /**
@@ -135,21 +130,51 @@ trait StateActionTrait
      * @param array $stateChange
      * @param mixed $sourceState
      * @param string $targetState
+     * @param boolean $confirmed
      * @return array|bool
+     * @throws yii\web\BadRequestHttpException
      */
-    public function checkTransition($model, $stateChange, $sourceState, $targetState)
+    public function checkTransition($model, $stateChange, $sourceState, $targetState, $confirmed = true)
     {
-        if ($targetState !== null) {
-            return true;
+        if ($targetState === null) {
+            // display all possible state transitions to select from
+            return [
+                'model'       => $model,
+                'stateChange' => $stateChange,
+                'sourceState' => $sourceState,
+                'targetState' => null,
+                'states'      => $this->prepareStates($model),
+            ];
         }
-        // display all possible state transitions to select from
-        return [
-            'model'       => $model,
-            'stateChange' => $stateChange,
-            'sourceState' => $sourceState,
-            'targetState' => null,
-            'states'      => $this->prepareStates($model),
-        ];
+
+        if (isset($stateChange['state']->auth_item_name) && $this->checkAccess) {
+            call_user_func($this->checkAccess, $stateChange['state']->auth_item_name, $model);
+        }
+
+        if (!isset($stateChange['targets'][$targetState])) {
+            $format  = $model->getAttributeFormat($model->stateAttributeName);
+            $message = Yii::t(
+                'netis/fsm/app',
+                'You cannot change state from {from} to {to} because such state transition is undefined.',
+                [
+                    'from' => Yii::$app->formatter->format($sourceState, $format),
+                    'to'   => Yii::$app->formatter->format($targetState, $format),
+                ]
+            );
+            throw new yii\web\BadRequestHttpException($message);
+        }
+        $model->setTransitionRules($targetState);
+
+        if ($targetState === $sourceState) {
+            $message = Yii::t('netis/fsm/app', 'Status has already been changed') . ', '
+                . Html::a(Yii::t('netis/fsm/app', 'return to'), Url::toRoute(['view', 'id' => $model->primaryKey]));
+            $this->setFlash('error', $message);
+            return false;
+        }
+        if (!$confirmed || !$model->isTransitionAllowed($targetState)) {
+            return false;
+        }
+        return true;
     }
 
     /**
@@ -161,44 +186,26 @@ trait StateActionTrait
      * @param boolean $confirmed
      * @return boolean true if state transition has been performed
      */
-    public function performTransition($model, $stateChange, $sourceState, $targetState, $confirmed)
+    public function performTransition($model, $stateChange, $sourceState, $targetState, $confirmed = true)
     {
-        if ($targetState === $sourceState) {
-            $message = Yii::t('netis/fsm/app', 'Status has already been changed') . ', '
-                . Html::a(Yii::t('netis/fsm/app', 'return to'), Url::toRoute(['view', 'id' => $model->primaryKey]));
-            $this->setFlash('error', $message);
-            return false;
-        }
-        if (!$confirmed || !$model->isTransitionAllowed($targetState)) {
-            return false;
-        }
-
         // explicitly assign the new state value to avoid forcing the state attribute to be safe
         $model->setAttribute($model->getStateAttributeName(), $targetState);
 
-        $this->beforeTransition($model);
-        if ($model->performTransition() === false) {
-            $this->setFlash('error', Yii::t('netis/fsm/app', 'Failed to save changes.'));
+        if (!$this->beforeTransition($model) || $model->performTransition() === false) {
             return false;
         }
-        /**
-         * Target state can be changed in {@link beforeTransition()} or {@link IStateful::performTransition()}
-         */
-        $targetState = $model->getAttribute($model->getStateAttributeName());
-        if (isset($stateChange['targets'][$targetState])) {
-            // $stateChange['targets'][$targetState] may not be set when user is admin
-            $this->setFlash('success', $stateChange['targets'][$targetState]->post_label);
-        }
+        $this->afterTransition($model);
         return true;
     }
 
     /**
      * Called before executing performTransition.
      * @param \yii\db\ActiveRecord $model
+     * @return bool
      */
     public function beforeTransition($model)
     {
-
+        return true;
     }
 
     /**
