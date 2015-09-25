@@ -56,7 +56,17 @@ trait StateActionTrait
             return $response;
         }
         if ($response === true) {
-            if ($this->performTransition($model, $stateChange, $sourceState, $targetState, $confirmed)) {
+            $trx = $model->getDb()->beginTransaction();
+            /** @var \nineinchnick\audit\behaviors\TrackableBehavior $trackable */
+            if (($trackable = $model->getBehavior('trackable')) !== null) {
+                $model->beginChangeset();
+            }
+            $result = $this->performTransition($model, $stateChange, $sourceState, $targetState, $confirmed);
+            if ($trackable !== null) {
+                $model->endChangeset();
+            }
+            if ($result) {
+                $trx->commit();
                 /**
                  * Target state can be changed in {@link beforeTransition()} or {@link IStateful::performTransition()}
                  */
@@ -66,8 +76,10 @@ trait StateActionTrait
                     $this->setFlash('success', $stateChange['targets'][$targetState]->post_label);
                 }
             } else {
+                $trx->rollBack();
                 $this->setFlash('error', Yii::t('netis/fsm/app', 'Failed to save changes.'));
             }
+
         }
 
         return array_merge($this->getResponse($model), [
