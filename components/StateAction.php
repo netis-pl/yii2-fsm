@@ -48,6 +48,10 @@ class StateAction extends UpdateAction
                 continue;
             }
 
+            if (!$model->isTransitionAllowed($targetState)) {
+                continue;
+            }
+
             $enabled = null;
             if (isset($sources[$sourceState])) {
                 $sourceStateObject = $sources[$sourceState];

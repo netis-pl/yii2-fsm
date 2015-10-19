@@ -185,10 +185,21 @@ trait StateActionTrait
             $this->setFlash('error', $message);
             return false;
         }
-        if (!$confirmed || !$model->isTransitionAllowed($targetState)) {
-            return false;
+
+        if (!$model->isTransitionAllowed($targetState)) {
+            $format  = $model->getAttributeFormat($model->stateAttributeName);
+            $message = Yii::t(
+                'netis/fsm/app',
+                'You cannot change state from {from} to {to} because such state transition is not allowed.',
+                [
+                    'from' => Yii::$app->formatter->format($sourceState, $format),
+                    'to'   => Yii::$app->formatter->format($targetState, $format),
+                ]
+            );
+            throw new yii\web\BadRequestHttpException($message);
         }
-        return true;
+
+        return $confirmed;
     }
 
     /**
