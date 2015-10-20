@@ -199,7 +199,7 @@ trait StateActionTrait
             throw new yii\web\BadRequestHttpException($message);
         }
 
-        return $confirmed;
+        return (bool)$confirmed;
     }
 
     /**
