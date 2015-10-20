@@ -67,14 +67,18 @@ class BulkStateAction extends BaseBulkAction
     }
 
     /**
-     * @param IStateful $model
+     * @param IStateful|yii\db\ActiveRecord $model
      *
      * @return mixed
      * @throws yii\web\BadRequestHttpException
      */
     protected function getSourceState($model)
     {
-        $sourceStates = $this->getQuery()->select($model->getStateAttributeName())->distinct()->column();
+        $query = clone $this->getQuery($model);
+        $sourceStates = $query
+            ->select($model->getStateAttributeName())
+            ->distinct()
+            ->column();
 
         if (count($sourceStates) > 1) {
             throw new yii\web\BadRequestHttpException(Yii::t(
@@ -156,7 +160,7 @@ class BulkStateAction extends BaseBulkAction
             throw new yii\base\InvalidConfigException('Not implemented - the singleQuery option has not been implemented yet.');
         }
 
-        $dataProvider   = $this->getDataProvider($baseModel, $this->getQuery());
+        $dataProvider   = $this->getDataProvider($baseModel, $this->getQuery($baseModel));
         $skippedKeys    = [];
         $failedKeys     = [];
 
