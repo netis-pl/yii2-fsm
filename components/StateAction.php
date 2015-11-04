@@ -66,6 +66,10 @@ class StateAction extends UpdateAction
 
                 $enabled = ($enabled === null || $enabled) && $checkedAccess[$authItem];
             }
+            if (!$enabled) {
+                continue;
+            }
+
             $url = array_merge(
                 [$actionId],
                 self::getUrlParams($state, $model, $targetState, Yii::$app->controller->action->id, true)
@@ -74,7 +78,7 @@ class StateAction extends UpdateAction
             $menu[$actionId . '-' . $targetState] = [
                 'label' => $state->label,
                 'icon'  => $state->icon,
-                'url'   => $enabled ? $url : null,
+                'url'   => $url,
             ];
         }
 
