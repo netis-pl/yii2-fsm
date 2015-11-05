@@ -4,6 +4,7 @@ namespace netis\fsm\components;
 
 use yii\helpers\Html;
 use yii\helpers\Url;
+use yii\web\ForbiddenHttpException;
 use yii\web\HttpException;
 use yii;
 
@@ -161,8 +162,10 @@ trait StateActionTrait
             ];
         }
 
-        if (isset($stateChange['state']->auth_item_name) && $this->checkAccess) {
-            call_user_func($this->checkAccess, $stateChange['state']->auth_item_name, $model);
+        if (isset($stateChange['state']->auth_item_name)
+            && !Yii::$app->user->can($stateChange['state']->auth_item_name, ['model' => $model])
+        ) {
+            throw new ForbiddenHttpException(Yii::t('app', 'Access denied.'));
         }
 
         if (!isset($stateChange['targets'][$targetState])) {
@@ -289,10 +292,8 @@ trait StateActionTrait
             $authItem          = $sourceStateObject->auth_item_name;
             if (trim($authItem) === '') {
                 $checkedAccess[$authItem] = true;
-            } elseif (!is_callable($this->checkAccess)) {
-                $checkedAccess[$authItem] = false;
             } elseif (!isset($checkedAccess[$authItem])) {
-                $checkedAccess[$authItem] = call_user_func($this->checkAccess, $authItem, $model);
+                $checkedAccess[$authItem] = Yii::$app->user->can($authItem, ['model' => $model]);
             }
             $enabled = ($enabled === null || $enabled) && $checkedAccess[$authItem];
 

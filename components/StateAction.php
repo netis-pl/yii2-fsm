@@ -58,10 +58,8 @@ class StateAction extends UpdateAction
                 $authItem          = $sourceStateObject->auth_item_name;
                 if (trim($authItem) === '') {
                     $checkedAccess[$authItem] = true;
-                } elseif (!is_callable($checkAccess)) {
-                    $checkedAccess[$authItem] = false;
                 } elseif (!isset($checkedAccess[$authItem])) {
-                    $checkedAccess[$authItem] = call_user_func($checkAccess, $authItem, $model);
+                    $checkedAccess[$authItem] = Yii::$app->user->can($authItem, ['model' => $model]);
                 }
 
                 $enabled = ($enabled === null || $enabled) && $checkedAccess[$authItem];
