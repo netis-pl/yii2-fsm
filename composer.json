@@ -19,7 +19,7 @@
     ],
     "require": {
         "yiisoft/yii2": ">=2.0.4",
-        "netis/crud": "*"
+        "netis/yii2-crud": "*"
     },
     "autoload": {
         "psr-4": { "netis\\fsm\\": "" }
