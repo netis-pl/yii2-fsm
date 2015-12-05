@@ -4,11 +4,11 @@ use yii\helpers\Html;
 use yii\helpers\Url;
 
 /* @var $this yii\web\View */
-/* @var $model netis\utils\crud\ActiveRecord */
+/* @var $model netis\crud\db\ActiveRecord */
 /* @var mixed $sourceState */
 /* @var mixed $targetState */
 /* @var array $states */
-/* @var $controller netis\utils\crud\ActiveController */
+/* @var $controller netis\crud\crud\ActiveController */
 
 $controller = $this->context;
 $this->title = $model->getCrudLabel('update').': '.$model->__toString();
@@ -18,13 +18,13 @@ $this->params['menu'] = $controller->getMenu($controller->action, $model);
 $format = $model->getAttributeFormat($model->getStateAttributeName());
 $confirmUrl = Url::toRoute([
     $action->id,
-    'id' => \netis\utils\crud\Action::exportKey($model->getPrimaryKey(true)),
+    'id' => \netis\crud\crud\Action::exportKey($model->getPrimaryKey(true)),
     'targetState' => $targetState,
     'confirmed' => 1,
 ]);
 $cancelUrl = Url::toRoute([
     (isset($_GET['return'])) ? $_GET['return'] : $controller->action->viewAction,
-    'id' => \netis\utils\crud\Action::exportKey($model->getPrimaryKey(true)),
+    'id' => \netis\crud\crud\Action::exportKey($model->getPrimaryKey(true)),
 ])
 ?>
 
@@ -33,7 +33,7 @@ $cancelUrl = Url::toRoute([
     'target' => '<span class="badge badge-primary">' . Yii::$app->formatter->format($targetState, $format) . '</span>',
 ]); ?>
 
-<?= netis\utils\web\Alerts::widget() ?>
+<?= netis\crud\web\Alerts::widget() ?>
 
 <div class="form">
     <?php echo Html::label(Yii::t('netis/fsm/app', 'Reason'), 'reason'); ?>

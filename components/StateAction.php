@@ -2,7 +2,7 @@
 
 namespace netis\fsm\components;
 
-use netis\utils\crud\UpdateAction;
+use netis\crud\crud\UpdateAction;
 use yii;
 
 /**

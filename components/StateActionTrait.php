@@ -36,8 +36,8 @@ trait StateActionTrait
      */
     public function init()
     {
-        if (!$this->controller instanceof \netis\utils\crud\ActiveController) {
-            throw new yii\base\InvalidConfigException('StateAction can only be used in a controller extending \netis\utils\crud\ActiveController.');
+        if (!$this->controller instanceof \netis\crud\crud\ActiveController) {
+            throw new yii\base\InvalidConfigException('StateAction can only be used in a controller extending \netis\crud\crud\ActiveController.');
         }
         parent::init();
     }
@@ -94,7 +94,7 @@ trait StateActionTrait
     /**
      * Loads the model and performs authorization check.
      * @param string $id
-     * @return \netis\utils\crud\ActiveRecord|IStateful
+     * @return \netis\crud\db\ActiveRecord|IStateful
      * @throws yii\base\InvalidConfigException
      * @throws yii\web\NotFoundHttpException
      */
@@ -115,7 +115,7 @@ trait StateActionTrait
 
     /**
      * Loads the model specified by $id and prepares some data structures.
-     * @param \netis\utils\crud\ActiveRecord|IStateful $model
+     * @param \netis\crud\db\ActiveRecord|IStateful $model
      * @param string $targetState
      * @return array contains values, in order: $stateChange(array), $sourceState(mixed), $format(string|array)
      * @throws HttpException
@@ -141,7 +141,7 @@ trait StateActionTrait
      * May render extra views for special cases and checks permissions.
      * @fixme consider some way of disable auth check because this method is used by BulkStateAction which passes dummy model as $model parameter
      *
-     * @param \netis\utils\crud\ActiveRecord $model
+     * @param \netis\crud\db\ActiveRecord $model
      * @param array $stateChange
      * @param mixed $sourceState
      * @param string $targetState
@@ -270,7 +270,7 @@ trait StateActionTrait
 
     /**
      * Builds an array containing all possible status changes and result of validating every transition.
-     * @param \netis\utils\crud\ActiveRecord|IStateful $model
+     * @param \netis\crud\db\ActiveRecord|IStateful $model
      * @return array
      */
     public function prepareStates($model)

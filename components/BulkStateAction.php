@@ -2,8 +2,8 @@
 
 namespace netis\fsm\components;
 
-use netis\utils\crud\BaseBulkAction;
-use netis\utils\widgets\FormBuilder;
+use netis\crud\crud\BaseBulkAction;
+use netis\crud\widgets\FormBuilder;
 use yii;
 use yii\helpers\Url;
 
@@ -93,7 +93,7 @@ class BulkStateAction extends BaseBulkAction
     /**
      * Initializes base model and performs all necessary checks.
      *
-     * @return IStateful|\netis\utils\crud\ActiveRecord
+     * @return IStateful|\netis\crud\db\ActiveRecord
      * @throws yii\base\InvalidConfigException
      * @throws yii\web\BadRequestHttpException
      */
@@ -104,7 +104,7 @@ class BulkStateAction extends BaseBulkAction
             throw new yii\web\BadRequestHttpException('Target state cannot be empty');
         }
 
-        /** @var IStateful|\netis\utils\crud\ActiveRecord $model */
+        /** @var IStateful|\netis\crud\db\ActiveRecord $model */
         $model = new $this->controller->modelClass;
         if (!$model instanceof IStateful) {
             throw new yii\base\InvalidConfigException(
@@ -169,7 +169,7 @@ class BulkStateAction extends BaseBulkAction
         }
 
         foreach ($dataProvider->getModels() as $model) {
-            /** @var IStateful|\netis\utils\crud\ActiveRecord $model */
+            /** @var IStateful|\netis\crud\db\ActiveRecord $model */
             if (!$this->controller->hasAccess('update', $model)
                 || ($stateAuthItem !== null && !Yii::$app->user->can($stateAuthItem, ['model' => $model]))
             ) {
@@ -205,7 +205,7 @@ class BulkStateAction extends BaseBulkAction
     }
 
     /**
-     * @param \netis\utils\crud\ActiveRecord $model
+     * @param \netis\crud\db\ActiveRecord $model
      *
      * @return null|yii\db\Transaction
      */
@@ -225,7 +225,7 @@ class BulkStateAction extends BaseBulkAction
     }
 
     /**
-     * @param \netis\utils\crud\ActiveRecord $model
+     * @param \netis\crud\db\ActiveRecord $model
      * @param null|yii\db\Transaction $transaction
      */
     protected function afterExecute($model, $transaction)
@@ -242,7 +242,7 @@ class BulkStateAction extends BaseBulkAction
     /**
      * Prepares response params, like fields and relations.
      *
-     * @param \netis\utils\crud\ActiveRecord $model
+     * @param \netis\crud\db\ActiveRecord $model
      *
      * @return array
      */

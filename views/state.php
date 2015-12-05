@@ -1,7 +1,7 @@
 <?php
 
 /* @var $this yii\web\View */
-/* @var $model netis\utils\crud\ActiveRecord */
+/* @var $model netis\crud\db\ActiveRecord */
 /* @var mixed $sourceState */
 /* @var mixed $targetState */
 /* @var array $states */
@@ -11,7 +11,7 @@ use yii\helpers\Html;
 $this->params['menu'] = Yii::$app->controller->getMenu(Yii::$app->controller->action, $model);
 ?>
 
-<?= netis\utils\web\Alerts::widget() ?>
+<?= netis\crud\web\Alerts::widget() ?>
 
 <div>
     <?php foreach ($states as $status): ?>
