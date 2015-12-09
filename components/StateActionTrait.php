@@ -32,6 +32,11 @@ trait StateActionTrait
     public $stateScenario = IStateful::SCENARIO;
 
     /**
+     * @var int
+     */
+    public $targetState = null;
+
+    /**
      * @inheritdoc
      */
     public function init()
@@ -47,12 +52,12 @@ trait StateActionTrait
      */
     public function run($id = null)
     {
-        $targetState = Yii::$app->request->getQueryParam('targetState');
+        $this->targetState = (int) Yii::$app->request->getQueryParam('targetState', $this->targetState);
         $confirmed = Yii::$app->request->getQueryParam('confirmed', false);
         $model = $this->initModel($id);
-        list($stateChange, $sourceState) = $this->getTransition($model, $targetState);
+        list($stateChange, $sourceState) = $this->getTransition($model);
 
-        $response = $this->checkTransition($model, $stateChange, $sourceState, $targetState, $confirmed);
+        $response = $this->checkTransition($model, $stateChange, $sourceState, $confirmed);
         if (!is_bool($response)) {
             return $response;
         }
@@ -62,7 +67,7 @@ trait StateActionTrait
             if (($trackable = $model->getBehavior('trackable')) !== null) {
                 $model->beginChangeset();
             }
-            $result = $this->performTransition($model, $stateChange, $sourceState, $targetState, $confirmed);
+            $result = $this->performTransition($model, $stateChange, $sourceState, $confirmed);
             if ($trackable !== null) {
                 $model->endChangeset();
             }
@@ -71,10 +76,10 @@ trait StateActionTrait
                 /**
                  * Target state can be changed in {@link beforeTransition()} or {@link IStateful::performTransition()}
                  */
-                $targetState = $model->getAttribute($model->getStateAttributeName());
-                if (isset($stateChange['targets'][$targetState])) {
+                $this->targetState = $model->getAttribute($model->getStateAttributeName());
+                if (isset($stateChange['targets'][$this->targetState])) {
                     // $stateChange['targets'][$targetState] may not be set when user is admin
-                    $this->setFlash('success', $stateChange['targets'][$targetState]->post_label);
+                    $this->setFlash('success', $stateChange['targets'][$this->targetState]->post_label);
                 }
             } else {
                 $trx->rollBack();
@@ -86,7 +91,7 @@ trait StateActionTrait
         return array_merge($this->getResponse($model), [
             'stateChange' => $stateChange,
             'sourceState' => $sourceState,
-            'targetState' => $targetState,
+            'targetState' => $this->targetState,
             'states'      => null,
         ]);
     }
@@ -120,7 +125,7 @@ trait StateActionTrait
      * @return array contains values, in order: $stateChange(array), $sourceState(mixed), $format(string|array)
      * @throws HttpException
      */
-    public function getTransition($model, $targetState)
+    public function getTransition($model)
     {
         $stateAttribute = $model->stateAttributeName;
         $stateChanges   = $model->getTransitionsGroupedBySource();
@@ -130,8 +135,8 @@ trait StateActionTrait
             $stateChange = ['state' => null, 'targets' => []];
         } else {
             $stateChange = $stateChanges[$sourceState];
-            if (isset($stateChange['targets'][$targetState])) {
-                $stateChange['state'] = $stateChange['targets'][$targetState];
+            if (isset($stateChange['targets'][$this->targetState])) {
+                $stateChange['state'] = $stateChange['targets'][$this->targetState];
             }
         }
         return [$stateChange, $sourceState];
@@ -149,9 +154,9 @@ trait StateActionTrait
      * @return array|bool
      * @throws yii\web\BadRequestHttpException
      */
-    public function checkTransition($model, $stateChange, $sourceState, $targetState, $confirmed = true)
+    public function checkTransition($model, $stateChange, $sourceState, $confirmed = true)
     {
-        if ($targetState === null) {
+        if ($this->targetState === null) {
             // display all possible state transitions to select from
             return [
                 'model'       => $model,
@@ -168,35 +173,35 @@ trait StateActionTrait
             throw new ForbiddenHttpException(Yii::t('app', 'Access denied.'));
         }
 
-        if (!isset($stateChange['targets'][$targetState])) {
+        if (!isset($stateChange['targets'][$this->targetState])) {
             $format  = $model->getAttributeFormat($model->stateAttributeName);
             $message = Yii::t(
                 'netis/fsm/app',
                 'You cannot change state from {from} to {to} because such state transition is undefined.',
                 [
                     'from' => Yii::$app->formatter->format($sourceState, $format),
-                    'to'   => Yii::$app->formatter->format($targetState, $format),
+                    'to'   => Yii::$app->formatter->format($this->targetState, $format),
                 ]
             );
             throw new yii\web\BadRequestHttpException($message);
         }
-        $model->setTransitionRules($targetState);
+        $model->setTransitionRules($this->targetState);
 
-        if ($targetState === $sourceState) {
+        if ($this->targetState === $sourceState) {
             $message = Yii::t('netis/fsm/app', 'Status has already been changed') . ', '
                 . Html::a(Yii::t('netis/fsm/app', 'return to'), Url::toRoute(['view', 'id' => $model->primaryKey]));
             $this->setFlash('error', $message);
             return false;
         }
 
-        if (!$model->isTransitionAllowed($targetState)) {
+        if (!$model->isTransitionAllowed($this->targetState)) {
             $format  = $model->getAttributeFormat($model->stateAttributeName);
             $message = Yii::t(
                 'netis/fsm/app',
                 'You cannot change state from {from} to {to} because such state transition is not allowed.',
                 [
                     'from' => Yii::$app->formatter->format($sourceState, $format),
-                    'to'   => Yii::$app->formatter->format($targetState, $format),
+                    'to'   => Yii::$app->formatter->format($this->targetState, $format),
                 ]
             );
             throw new yii\web\BadRequestHttpException($message);
@@ -214,10 +219,10 @@ trait StateActionTrait
      * @param boolean $confirmed
      * @return boolean true if state transition has been performed
      */
-    public function performTransition($model, $stateChange, $sourceState, $targetState, $confirmed = true)
+    public function performTransition($model, $stateChange, $sourceState, $confirmed = true)
     {
         // explicitly assign the new state value to avoid forcing the state attribute to be safe
-        $model->setAttribute($model->getStateAttributeName(), $targetState);
+        $model->setAttribute($model->getStateAttributeName(), $this->targetState);
 
         if (!$this->beforeTransition($model) || $model->performTransition() === false) {
             return false;

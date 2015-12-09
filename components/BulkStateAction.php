@@ -99,8 +99,7 @@ class BulkStateAction extends BaseBulkAction
      */
     protected function initModel()
     {
-        $targetState = Yii::$app->request->getQueryParam('targetState');
-        if (trim($targetState) === '') {
+        if (trim($this->targetState) === '') {
             throw new yii\web\BadRequestHttpException('Target state cannot be empty');
         }
 
@@ -125,12 +124,12 @@ class BulkStateAction extends BaseBulkAction
      */
     public function prepare()
     {
-        $targetState = Yii::$app->request->getQueryParam('targetState');
+        $this->targetState = (int) Yii::$app->request->getQueryParam('targetState');
 
         $model = $this->initModel();
 
-        list ($stateChange, $sourceState) = $this->getTransition($model, $targetState);
-        $response = $this->checkTransition($model, $stateChange, $sourceState, $targetState, true);
+        list ($stateChange, $sourceState) = $this->getTransition($model);
+        $response = $this->checkTransition($model, $stateChange, $sourceState, true);
         if (!is_bool($response)) {
             return $response;
         }
@@ -138,7 +137,7 @@ class BulkStateAction extends BaseBulkAction
         return array_merge($this->getResponse($model), [
             'stateChange' => $stateChange,
             'sourceState' => $sourceState,
-            'targetState' => $targetState,
+            'targetState' => $this->targetState,
             'states'      => null,
         ]);
     }
@@ -148,11 +147,11 @@ class BulkStateAction extends BaseBulkAction
      */
     public function execute()
     {
-        $targetState = Yii::$app->request->getQueryParam('targetState');
+        $this->targetState = Yii::$app->request->getQueryParam('targetState');
 
         $baseModel = $this->initModel();
-        list ($stateChange, $sourceState) = $this->getTransition($baseModel, $targetState);
-        $response = $this->checkTransition($baseModel, $stateChange, $sourceState, $targetState, true);
+        list ($stateChange, $sourceState) = $this->getTransition($baseModel);
+        $response = $this->checkTransition($baseModel, $stateChange, $sourceState, true);
         $stateAuthItem = isset($stateChange['state']->auth_item_name) ? $stateChange['state']->auth_item_name : null;
         $transaction = $this->beforeExecute($baseModel);
 
@@ -178,9 +177,9 @@ class BulkStateAction extends BaseBulkAction
             }
 
             $model->scenario = IStateful::SCENARIO;
-            $model->setTransitionRules($targetState);
+            $model->setTransitionRules($this->targetState);
 
-            if (!$this->performTransition($model, $stateChange, $sourceState, $targetState, true)) {
+            if (!$this->performTransition($model, $stateChange, $sourceState, true)) {
                 //! @todo errors should be gathered and displayed somewhere, maybe add a postSummary action in this class
                 $failedKeys[] = $model->primaryKey;
             }
