@@ -190,7 +190,7 @@ class BulkStateAction extends BaseBulkAction
         $message = Yii::t('netis/fsm/app', '{number} out of {total} {model} has been successfully updated.', [
             'number' => $dataProvider->getTotalCount() - count($failedKeys) - count($skippedKeys),
             'total'  => $dataProvider->getTotalCount(),
-            'model'  => $baseModel->getCrudLabel(),
+            'model'  => $baseModel->getCrudLabel('relation'),
         ]);
         $this->setFlash($this->postFlashKey, $message);
 
