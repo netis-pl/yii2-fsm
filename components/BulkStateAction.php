@@ -192,7 +192,7 @@ class BulkStateAction extends BaseBulkAction
         }
 
         $this->afterExecute($baseModel, $transaction);
-        $this->setSuccessFlash($baseModel, $dataProvider, $skippedModels, $failedModels, $successModels);
+        $this->setSuccessFlash($baseModel, $skippedModels, $failedModels, $successModels);
 
         $route = is_callable($this->postRoute) ? call_user_func($this->postRoute, $baseModel) : $this->postRoute;
 
