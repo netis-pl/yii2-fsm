@@ -2,6 +2,7 @@
 
 namespace netis\fsm\components;
 
+use netis\crud\db\ActiveRecord;
 use netis\crud\crud\BaseBulkAction;
 use netis\crud\widgets\FormBuilder;
 use yii;
@@ -16,7 +17,9 @@ use yii\helpers\Url;
  */
 class BulkStateAction extends BaseBulkAction
 {
-    use StateActionTrait;
+    use StateActionTrait {
+        setSuccessFlash as setSuccessFlashTrait;
+    }
 
     /**
      * @var boolean Is the job run in a single query.
@@ -160,8 +163,9 @@ class BulkStateAction extends BaseBulkAction
         }
 
         $dataProvider   = $this->getDataProvider($baseModel, $this->getQuery($baseModel));
-        $skippedKeys    = [];
-        $failedKeys     = [];
+        $skippedModels    = [];
+        $failedModels     = [];
+        $successModels    = [];
 
         if ($response !== true) {
             return $dataProvider;
@@ -172,7 +176,7 @@ class BulkStateAction extends BaseBulkAction
             if (!$this->controller->hasAccess('update', $model)
                 || ($stateAuthItem !== null && !Yii::$app->user->can($stateAuthItem, ['model' => $model]))
             ) {
-                $skippedKeys[] = $model->primaryKey;
+                $skippedModels[] = $model;
                 continue;
             }
 
@@ -181,18 +185,14 @@ class BulkStateAction extends BaseBulkAction
 
             if (!$this->performTransition($model, $stateChange, $sourceState, true)) {
                 //! @todo errors should be gathered and displayed somewhere, maybe add a postSummary action in this class
-                $failedKeys[] = $model->primaryKey;
+                $failedModels[] = $model;
+            } else {
+                $successModels[] = $model;
             }
         }
 
         $this->afterExecute($baseModel, $transaction);
-
-        $message = Yii::t('netis/fsm/app', '{number} out of {total} {model} has been successfully updated.', [
-            'number' => $dataProvider->getTotalCount() - count($failedKeys) - count($skippedKeys),
-            'total'  => $dataProvider->getTotalCount(),
-            'model'  => $baseModel->getCrudLabel('relation'),
-        ]);
-        $this->setFlash($this->postFlashKey, $message);
+        $this->setSuccessFlash($baseModel, $dataProvider, $skippedModels, $failedModels, $successModels);
 
         $route = is_callable($this->postRoute) ? call_user_func($this->postRoute, $baseModel) : $this->postRoute;
 
@@ -236,6 +236,16 @@ class BulkStateAction extends BaseBulkAction
         if ($transaction !== null) {
             $transaction->commit();
         }
+    }
+
+    public function setSuccessFlash(ActiveRecord $model, $skippedModels, $failedModels, $successModels)
+    {
+        $message = Yii::t('netis/fsm/app', '{number} out of {total} {model} has been successfully updated.', [
+            'number' => count($successModels),
+            'total'  => count($successModels) + count($failedModels) + count($skippedModels),
+            'model'  => $model->getCrudLabel('relation'),
+        ]);
+        $this->setFlash($this->postFlashKey, $message);
     }
 
     /**

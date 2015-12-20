@@ -77,10 +77,7 @@ trait StateActionTrait
                  * Target state can be changed in {@link beforeTransition()} or {@link IStateful::performTransition()}
                  */
                 $this->targetState = $model->getAttribute($model->getStateAttributeName());
-                if (isset($stateChange['targets'][$this->targetState])) {
-                    // $stateChange['targets'][$targetState] may not be set when user is admin
-                    $this->setFlash('success', $stateChange['targets'][$this->targetState]->post_label);
-                }
+                $this->setSuccessFlash($model, $stateChange, $sourceState, $this->targetState);
             } else {
                 $trx->rollBack();
                 $this->setFlash('error', Yii::t('netis/fsm/app', 'Failed to save changes.'));
@@ -251,6 +248,20 @@ trait StateActionTrait
         $response = Yii::$app->getResponse();
         $response->setStatusCode(201);
         $response->getHeaders()->set('Location', Url::toRoute([$this->viewAction, 'id' => $id], true));
+    }
+
+    /**
+     * @param \yii\db\ActiveRecord|IStateful $model
+     * @param array $stateChange
+     * @param string $sourceState
+     * @param string $targetState
+     */
+    public function setSuccessFlash($model, $stateChange, $sourceState, $targetState)
+    {
+        if (isset($stateChange['targets'][$targetState])) {
+            // $stateChange['targets'][$targetState] may not be set when user is admin
+            $this->setFlash('success', $stateChange['targets'][$targetState]->post_label);
+        }
     }
 
     /**
