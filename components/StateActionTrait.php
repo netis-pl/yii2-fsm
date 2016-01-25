@@ -273,7 +273,7 @@ trait StateActionTrait
      * @param boolean $contextMenu the url going to be used in a context menu
      * @return array url params to be used with a route
      */
-    public static function getUrlParams($state, $model, $targetState, $id, $contextMenu = false)
+    public function getUrlParams($state, $model, $targetState, $id, $contextMenu = false)
     {
         $urlParams = ['id' => $model->primaryKey, 'targetState' => $targetState];
         if (!$state->confirmation_required) {
@@ -322,7 +322,7 @@ trait StateActionTrait
                 'target'  => $targetState,
                 'enabled' => $enabled && $valid,
                 'valid'   => $valid,
-                'url'     => Url::toRoute([$this->id, static::getUrlParams($state, $model, $targetState, $this->id)]),
+                'url'     => Url::toRoute([$this->id, $this->getUrlParams($state, $model, $targetState, $this->id)]),
             ];
             if ($state->display_order) {
                 $result[$state->display_order] = $entry;
@@ -332,5 +332,74 @@ trait StateActionTrait
         }
         ksort($result);
         return $result;
+    }
+
+    /**
+     * Builds a menu item used in the context menu.
+     *
+     * @param string   $actionId    target action id
+     * @param array    $transitions obtained by getGroupedByTarget()
+     * @param mixed    $model       target model
+     * @param mixed    $sourceState current value of the state attribute
+     * @param callable $checkAccess should have the following signature: function ($action, $model)
+     * @param bool     $useDropDownMenu should this method create drop down menu or buttons
+     *
+     * @return array
+     */
+    public function getContextMenuItem($actionId, $transitions, $model, $sourceState, $checkAccess, $useDropDownMenu = true)
+    {
+        $menu = [];
+
+        foreach ($transitions as $targetState => $target) {
+            $state   = $target['state'];
+            $sources = $target['sources'];
+            if (!isset($sources[$sourceState])) {
+                continue;
+            }
+
+            if (!$model->isTransitionAllowed($targetState)) {
+                continue;
+            }
+
+            $enabled = null;
+            if (isset($sources[$sourceState])) {
+                $sourceStateObject = $sources[$sourceState];
+                $authItem          = $sourceStateObject->auth_item_name;
+                if (trim($authItem) === '') {
+                    $checkedAccess[$authItem] = true;
+                } elseif (!isset($checkedAccess[$authItem])) {
+                    $checkedAccess[$authItem] = Yii::$app->user->can($authItem, ['model' => $model]);
+                }
+
+                $enabled = ($enabled === null || $enabled) && $checkedAccess[$authItem];
+            }
+            if (!$enabled) {
+                continue;
+            }
+
+            $url = array_merge(
+                [$actionId],
+                $this->getUrlParams($state, $model, $targetState, Yii::$app->controller->action->id, true)
+            );
+
+            $menu[$actionId . '-' . $targetState] = [
+                'label' => $state->label,
+                'icon'  => $state->icon,
+                'url'   => $url,
+            ];
+        }
+
+        if (!$useDropDownMenu) {
+            return $menu;
+        }
+        return [
+            'state' => [
+                'label'    => Yii::t('netis/fsm/app', 'State change'),
+                'disabled' => $model->primaryKey === null || empty($menu),
+                'icon'     => 'share',
+                'url'      => '#',
+                'items'    => array_values($menu),
+            ],
+        ];
     }
 }
