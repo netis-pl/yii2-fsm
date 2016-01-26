@@ -37,6 +37,16 @@ trait StateActionTrait
     public $targetState = null;
 
     /**
+     * Return target state
+     *
+     * @return integer
+     */
+    public function getTargetState()
+    {
+        return $this->targetState;
+    }
+
+    /**
      * @inheritdoc
      */
     public function init()
@@ -117,10 +127,11 @@ trait StateActionTrait
 
     /**
      * Loads the model specified by $id and prepares some data structures.
+     *
      * @param \netis\crud\db\ActiveRecord|IStateful $model
-     * @param string $targetState
+     *
      * @return array contains values, in order: $stateChange(array), $sourceState(mixed), $format(string|array)
-     * @throws HttpException
+     * @internal param string $targetState
      */
     public function getTransition($model)
     {
@@ -141,15 +152,18 @@ trait StateActionTrait
 
     /**
      * May render extra views for special cases and checks permissions.
-     * @fixme consider some way of disable auth check because this method is used by BulkStateAction which passes dummy model as $model parameter
+     *
+     * @fixme    consider some way of disable auth check because this method is used by BulkStateAction which passes dummy model as $model parameter
      *
      * @param \netis\crud\db\ActiveRecord $model
-     * @param array $stateChange
-     * @param mixed $sourceState
-     * @param string $targetState
-     * @param boolean $confirmed
+     * @param array                       $stateChange
+     * @param mixed                       $sourceState
+     * @param boolean                     $confirmed
+     *
      * @return array|bool
+     * @throws ForbiddenHttpException
      * @throws yii\web\BadRequestHttpException
+     * @internal param string $targetState
      */
     public function checkTransition($model, $stateChange, $sourceState, $confirmed = true)
     {
@@ -209,12 +223,14 @@ trait StateActionTrait
 
     /**
      * Perform last checks and the actual state transition.
+     *
      * @param \yii\db\ActiveRecord|IStateful $model
-     * @param array $stateChange
-     * @param mixed $sourceState
-     * @param string $targetState
-     * @param boolean $confirmed
-     * @return boolean true if state transition has been performed
+     * @param array                          $stateChange
+     * @param mixed                          $sourceState
+     * @param boolean                        $confirmed
+     *
+     * @return bool true if state transition has been performed
+     * @internal param string $targetState
      */
     public function performTransition($model, $stateChange, $sourceState, $confirmed = true)
     {

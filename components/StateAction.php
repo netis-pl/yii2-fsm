@@ -21,7 +21,7 @@ use yii;
  *
  * @author Jan Was <jwas@nets.com.pl>
  */
-class StateAction extends UpdateAction
+class StateAction extends UpdateAction implements StateActionInterface
 {
     use StateActionTrait;
 }

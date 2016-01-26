@@ -15,7 +15,7 @@ use yii\helpers\Url;
  *
  * @author jwas
  */
-class BulkStateAction extends BaseBulkAction
+class BulkStateAction extends BaseBulkAction implements StateActionInterface
 {
     use StateActionTrait {
         setSuccessFlash as setSuccessFlashTrait;
