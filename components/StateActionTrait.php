@@ -131,7 +131,6 @@ trait StateActionTrait
      * @param \netis\crud\db\ActiveRecord|IStateful $model
      *
      * @return array contains values, in order: $stateChange(array), $sourceState(mixed), $format(string|array)
-     * @internal param string $targetState
      */
     public function getTransition($model)
     {
@@ -163,7 +162,6 @@ trait StateActionTrait
      * @return array|bool
      * @throws ForbiddenHttpException
      * @throws yii\web\BadRequestHttpException
-     * @internal param string $targetState
      */
     public function checkTransition($model, $stateChange, $sourceState, $confirmed = true)
     {
@@ -230,7 +228,6 @@ trait StateActionTrait
      * @param boolean                        $confirmed
      *
      * @return bool true if state transition has been performed
-     * @internal param string $targetState
      */
     public function performTransition($model, $stateChange, $sourceState, $confirmed = true)
     {
