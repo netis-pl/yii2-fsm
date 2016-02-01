@@ -192,7 +192,7 @@ class BulkStateAction extends BaseBulkAction implements StateActionInterface
         }
 
         $this->afterExecute($baseModel, $transaction);
-        $this->setSuccessFlash($baseModel, $skippedModels, $failedModels, $successModels);
+        $this->setSuccessMessage($baseModel, $skippedModels, $failedModels, $successModels);
 
         $route = is_callable($this->postRoute) ? call_user_func($this->postRoute, $baseModel) : $this->postRoute;
 
@@ -238,7 +238,7 @@ class BulkStateAction extends BaseBulkAction implements StateActionInterface
         }
     }
 
-    public function setSuccessFlash(ActiveRecord $model, $skippedModels, $failedModels, $successModels)
+    public function setSuccessMessage(ActiveRecord $model, $skippedModels, $failedModels, $successModels)
     {
         $message = Yii::t('netis/fsm/app', '{number} out of {total} {model} has been successfully updated.', [
             'number' => count($successModels),
