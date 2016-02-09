@@ -130,7 +130,7 @@ trait StateActionTrait
      *
      * @param \netis\crud\db\ActiveRecord|IStateful $model
      *
-     * @return array contains values, in order: $stateChange(array), $sourceState(mixed), $format(string|array)
+     * @return array contains values, in order: $stateChange(array), $sourceState(mixed)
      */
     public function getTransition($model)
     {
