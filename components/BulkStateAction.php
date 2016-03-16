@@ -6,6 +6,7 @@ use netis\crud\db\ActiveRecord;
 use netis\crud\crud\BaseBulkAction;
 use netis\crud\widgets\FormBuilder;
 use yii;
+use yii\helpers\Html;
 use yii\helpers\Url;
 
 /**
@@ -185,7 +186,7 @@ class BulkStateAction extends BaseBulkAction implements StateActionInterface
 
             if (!$this->performTransition($model, $stateChange, $sourceState, true)) {
                 //! @todo errors should be gathered and displayed somewhere, maybe add a postSummary action in this class
-                $failedModels[] = $model;
+                $failedModels[$model->__toString()] = \yii\helpers\Html::errorSummary($model, ['header' => '']);
             } else {
                 $successModels[] = $model;
             }
@@ -246,6 +247,18 @@ class BulkStateAction extends BaseBulkAction implements StateActionInterface
             'model'  => $model->getCrudLabel('relation'),
         ]);
         $this->setFlash($this->postFlashKey, $message);
+
+        if (count($failedModels) === 0) {
+            return;
+        }
+
+        $errorMessage = '';
+        foreach ($failedModels as $label => $errors) {
+            $errorMessage .= Html::tag('li', $label . ':&nbsp;' . $errors);
+        }
+
+        $errorMessage = Html::tag('ul', $errorMessage);
+        $this->setFlash('error', Yii::t('netis/fsm/app', 'Failed to change status for following orders: ') . $errorMessage);
     }
 
     /**
