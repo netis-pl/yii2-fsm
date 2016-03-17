@@ -246,8 +246,10 @@ class BulkStateAction extends BaseBulkAction implements StateActionInterface
             'total'  => count($successModels) + count($failedModels) + count($skippedModels),
             'model'  => $model->getCrudLabel('relation'),
         ]);
-        $this->setFlash($this->postFlashKey, $message);
-
+        if (count($successModels) > 0) {
+            $this->setFlash($this->postFlashKey, $message);
+        }
+        
         if (count($failedModels) === 0) {
             return;
         }
