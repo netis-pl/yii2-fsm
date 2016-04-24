@@ -77,7 +77,13 @@ trait StateActionTrait
             if (($trackable = $model->getBehavior('trackable')) !== null) {
                 $model->beginChangeset();
             }
-            $result = $this->performTransition($model, $stateChange, $sourceState, $confirmed);
+            $errorMessage = Yii::t('netis/fsm/app', 'Failed to save changes.');
+            try {
+                $result = $this->performTransition($model, $stateChange, $sourceState, $confirmed);
+            } catch (yii\db\StaleObjectException $e) {
+                $result = false;
+                $errorMessage = Yii::t('app', 'Could not save because record was edited by another user. Please try again.');
+            }
             if ($trackable !== null) {
                 $model->endChangeset();
             }
@@ -90,7 +96,7 @@ trait StateActionTrait
                 $this->setSuccessFlash($model, $stateChange, $sourceState, $this->targetState);
             } else {
                 $trx->rollBack();
-                $this->setFlash('error', Yii::t('netis/fsm/app', 'Failed to save changes.'));
+                $this->setFlash('error', $errorMessage);
             }
 
         }
