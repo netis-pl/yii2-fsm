@@ -160,7 +160,7 @@ trait StateActionTrait
      *
      * @fixme    consider some way of disable auth check because this method is used by BulkStateAction which passes dummy model as $model parameter
      *
-     * @param \netis\crud\db\ActiveRecord $model
+     * @param \netis\crud\db\ActiveRecord|IStateful $model
      * @param array                       $stateChange
      * @param mixed                       $sourceState
      * @param boolean                     $confirmed
@@ -189,13 +189,20 @@ trait StateActionTrait
         }
 
         if (!isset($stateChange['targets'][$this->targetState])) {
-            $format  = $model->getAttributeFormat($model->stateAttributeName);
+            $format  = $model->getAttributeFormat($model->getStateAttributeName());
+            $relatedModel = $model->getRelatedModel($model->getStateAttributeName());
+            $from = Yii::$app->formatter->format($sourceState, $format);
+            $to   = Yii::$app->formatter->format($this->targetState, $format);
+            if ($relatedModel !== null) {
+                $from = $relatedModel::findOne($sourceState);
+                $to = $relatedModel::findOne($this->targetState);
+            }
             $message = Yii::t(
                 'netis/fsm/app',
                 'You cannot change state from {from} to {to} because such state transition is undefined.',
                 [
-                    'from' => Yii::$app->formatter->format($sourceState, $format),
-                    'to'   => Yii::$app->formatter->format($this->targetState, $format),
+                    'from' => $from,
+                    'to'   => $to,
                 ]
             );
             throw new yii\web\BadRequestHttpException($message);
@@ -210,13 +217,20 @@ trait StateActionTrait
         }
 
         if (!$model->isTransitionAllowed($this->targetState)) {
-            $format  = $model->getAttributeFormat($model->stateAttributeName);
+            $format  = $model->getAttributeFormat($model->getStateAttributeName());
+            $relatedModel = $model->getRelatedModel($model->getStateAttributeName());
+            $from = Yii::$app->formatter->format($sourceState, $format);
+            $to   = Yii::$app->formatter->format($this->targetState, $format);
+            if ($relatedModel !== null) {
+                $from = $relatedModel::findOne($sourceState);
+                $to = $relatedModel::findOne($this->targetState);
+            }
             $message = Yii::t(
                 'netis/fsm/app',
                 'You cannot change state from {from} to {to} because such state transition is not allowed.',
                 [
-                    'from' => Yii::$app->formatter->format($sourceState, $format),
-                    'to'   => Yii::$app->formatter->format($this->targetState, $format),
+                    'from' => $from,
+                    'to'   => $to,
                 ]
             );
             throw new yii\web\BadRequestHttpException($message);

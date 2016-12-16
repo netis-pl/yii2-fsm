@@ -26,8 +26,8 @@ return [
     'Reason' => 'Powód',
     'State change' => 'Zmiana stanu',
     'Status has already been changed' => 'Status został zmieniony',
-    'You cannot change state from {from} to {to} because such state transition is not allowed.' => 'Nie możesz zmienić stanu z {from} na {to} ponieważ taka zmiana nie jest dozwolona',
-    'You cannot change state from {from} to {to} because such state transition is undefined.' => 'Nie możesz zmienić stanu z {from} na {to} ponieważ taka zmiana stanu nie została zdefiniowana.',
+    'You cannot change state from {from} to {to} because such state transition is not allowed.' => 'Nie możesz zmienić stanu z \'{from}\' na \'{to}\' ponieważ taka zmiana nie jest dozwolona',
+    'You cannot change state from {from} to {to} because such state transition is undefined.' => 'Nie możesz zmienić stanu z \'{from}\' na \'{to}\' ponieważ taka zmiana stanu nie została zdefiniowana.',
     'return to' => 'powrót do',
     '{number} out of {total} {model} has been successfully updated.' => '{model} zaktualizowane pomyślnie ({number} z {total}).',
 ];
